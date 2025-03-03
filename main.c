@@ -44,7 +44,7 @@ void readinputfile(char* filepath) {
     while((read = getline(&line, &len, fp)) != -1) {
         // read in each line as its own input
         float x, y, z, t;
-        sscanf(&line, "%f %f %f %f", &x, &y, &z, &t);
+        sscanf(line, "%f %f %f %f", &x, &y, &z, &t);
     }
 
     fclose(fp);
