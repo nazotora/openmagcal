@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <unistd.h> // for getopts
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
+#include "main.h"
 
 //Constants:
 const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB.
@@ -29,7 +31,48 @@ void readRefMag() {
     reference[2] = (float)z;
 }
 
+void readinputfile(char* filepath) {
+    FILE *fp = fopen(filepath, "r");
+    if (fp == NULL) {
+        log_error("File %s not found.", filepath);
+        exit(1);
+    }
+
+    ssize_t read;
+    char* line = NULL;
+    size_t len = 0;
+    while((read = getline(&line, &len, fp)) != -1) {
+        // read in each line as its own input
+        float x, y, z, t;
+        sscanf(&line, "%f %f %f %f", &x, &y, &z, &t);
+    }
+
+    fclose(fp);
+    if (line) free(line);
+    return;
+}
+
 int main(int argc, char** argv) {
+    int c; // why int... :(
+    while ((c = getopt(argc, argv, "f:")) != -1) {
+        // the random undefined variables in here are extern vars
+        switch(c) {
+            case 'f':
+                filemode = true;
+                break;
+            case ':':
+                log_error("Option -%c requires an operand.\n", optopt);
+                break;
+            case '?':
+                log_error("Unrecognized option: '-%c'\n", optopt);
+                break;
+        }
+    }
+
+    // file reading.
+    // currently for ease of use this just throws the entire thing in memory.
+
+
     //setup:
     buffer = (uint8_t*)malloc(10);
     //The RM3100 wants CPOL=CPHA, so mode 0 or 3. 
