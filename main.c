@@ -26,9 +26,7 @@ void readRefMag() {
     uint32_t x = buffer[1] + (buffer[2] << 8) + (buffer[3] << 16);
     uint32_t y = buffer[4] + (buffer[5] << 8) + (buffer[6] << 16);
     uint32_t z = buffer[7] + (buffer[8] << 8) + (buffer[9] << 16);
-    reference[0] = (float)x;
-    reference[1] = (float)y;
-    reference[2] = (float)z;
+    log_info(1,"Raw: X=%d, Y=%d, Z=%d", x, y, z);
 }
 
 void readinputfile(char* filepath) {
@@ -83,5 +81,6 @@ int main(int argc, char** argv) {
     wiringPiSPIDataRW(0, buffer, 2);
 
     //loop:
+    readRefMag();
     return 0;
 }
