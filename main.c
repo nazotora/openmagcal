@@ -40,9 +40,10 @@ void readRefB() {
 
 void printRefB() {
     float bX = (float)refB[0] / 1000;
-    float bY = (float)refB[0] / 1000;
-    float bZ = (float)refB[0] / 1000;
-    printf("B = %+.3fx%+.3fy%+.3fz uT\n",bX, bY, bZ);
+    float bY = (float)refB[1] / 1000;
+    float bZ = (float)refB[2] / 1000;
+    float bT = sqrtf(bX*bX + bY*bY + bZ*bZ);
+    printf("B = %.3fx%+.3fy%+.3fz uT (|B| = %.3f)\n",bX, bY, bZ, bT);
 }
 
 void readinputfile(char* filepath) {
@@ -90,7 +91,7 @@ int main(int argc, char** argv) {
     //setup:
     buffer = (uint8_t*)calloc(sizeof(char), 10);
 
-    printf("Setting up Magnetometer");
+    printf("Setting up Magnetometer...\n");
     //The RM3100 wants CPOL=CPHA, so mode 0 or 3. 
     wiringPiSPISetupMode(0,9600,3); //Channel=0?, Speed=9600?, Mode=3. Do not alter unless you know what you're doing!
     //Initiate continuous measurement mode:
