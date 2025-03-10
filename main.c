@@ -8,11 +8,11 @@
 #include "main.h"
 
 //Constants:
-const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB.
+const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB. This is for a 200 cycle measurement (the default).
 
 //Globals:
 uint8_t *buffer;
-int refB[3];
+int refB[3]; //In nanotesla.
 
 typedef struct fieldOrder {
     float x;
@@ -21,7 +21,7 @@ typedef struct fieldOrder {
     int t;
 } fieldOrder_t;
 
-void readRefMag() {
+void readRefB() {
     buffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
     wiringPiSPIDataRW(0,buffer,10);
     uint32_t rX = 0 | buffer[3] | (buffer[2] << 8) | (buffer[1] << 16);
@@ -35,7 +35,14 @@ void readRefMag() {
     refB[0] = SENSITIVITY * ((x << 8) >> 8);
     refB[1] = SENSITIVITY * ((y << 8) >> 8);
     refB[2] = SENSITIVITY * ((z << 8) >> 8);
-    printf("Magnetic B-Field: %dx + %dy + %dz nT\n", refB[0], refB[1], refB[2]);
+    //printf("B = %dx + %dy + %dz nT\n", refB[0], refB[1], refB[2]);
+}
+
+void printRefB() {
+    float bX = (float)refB[0] / 1000;
+    float bY = (float)refB[0] / 1000;
+    float bZ = (float)refB[0] / 1000;
+    printf("B = %+.3fx%+.3fy%+.3fz uT\n",bX, bY, bZ);
 }
 
 void readinputfile(char* filepath) {
@@ -93,7 +100,8 @@ int main(int argc, char** argv) {
 
     //loop:
     while (1) {
-        readRefMag();
+        readRefB();
+        printRefB();
         sleep(1); //Sleep for 1 second.
     }
     return 0;
