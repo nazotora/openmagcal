@@ -1,6 +1,6 @@
 #include <stdbool.h>
 
-#define MSGLEVEL 10
+#define MSGLEVEL 0
 
 /** Default CLI options. */
 static bool filemode = false;

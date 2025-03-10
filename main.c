@@ -26,7 +26,7 @@ void readRefMag() {
     uint32_t x = buffer[1] + (buffer[2] << 8) + (buffer[3] << 16);
     uint32_t y = buffer[4] + (buffer[5] << 8) + (buffer[6] << 16);
     uint32_t z = buffer[7] + (buffer[8] << 8) + (buffer[9] << 16);
-    log_info(1,"Raw: X=%d, Y=%d, Z=%d", x, y, z);
+    printf("Raw: X=%08X, Y=%08X, Z=%08X\n", x, y, z);
 }
 
 void readinputfile(char* filepath) {
@@ -72,7 +72,9 @@ int main(int argc, char** argv) {
 
 
     //setup:
-    buffer = (uint8_t*)malloc(10);
+    buffer = (uint8_t*)calloc(sizeof(char), 10);
+
+    printf("Setting up Magnetometer");
     //The RM3100 wants CPOL=CPHA, so mode 0 or 3. 
     wiringPiSPISetupMode(0,9600,3); //Channel=0?, Speed=9600?, Mode=3. Do not alter unless you know what you're doing!
     //Initiate continuous measurement mode:
@@ -81,6 +83,9 @@ int main(int argc, char** argv) {
     wiringPiSPIDataRW(0, buffer, 2);
 
     //loop:
-    readRefMag();
+    while (1) {
+        readRefMag();
+        sleep(1); //Sleep for 1 second.
+    }
     return 0;
 }
