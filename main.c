@@ -12,7 +12,7 @@ const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB.
 
 //Globals:
 uint8_t *buffer;
-float reference[3];
+int refB[3];
 
 typedef struct fieldOrder {
     float x;
@@ -27,15 +27,15 @@ void readRefMag() {
     uint32_t rX = 0 | buffer[3] | (buffer[2] << 8) | (buffer[1] << 16);
     uint32_t rY = 0 | buffer[6] | (buffer[5] << 8) | (buffer[4] << 16);
     uint32_t rZ = 0 | buffer[9] | (buffer[8] << 8) | (buffer[7] << 16);
-    printf("Raw: X=%08X, Y=%08X, Z=%08X\n", rX, rY, rZ);
+    //printf("Raw: X=%08X, Y=%08X, Z=%08X\n", rX, rY, rZ);
     int32_t x, y, z;
     memcpy(&x, &rX, 4);
     memcpy(&y, &rY, 4);
     memcpy(&z, &rZ, 4);
-    x = ((x << 8) >> 8);
-    y = ((y << 8) >> 8);
-    z = ((z << 8) >> 8);
-    printf("Formatted: X=%d, Y=%d, Z=%d\n", x, y, z);
+    refB[0] = SENSITIVITY * ((x << 8) >> 8);
+    refB[1] = SENSITIVITY * ((y << 8) >> 8);
+    refB[2] = SENSITIVITY * ((z << 8) >> 8);
+    printf("Magnetic B-Field: %dx + %dy + %dz nT\n", refB[0], refB[1], refB[2]);
 }
 
 void readinputfile(char* filepath) {
