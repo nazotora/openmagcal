@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 #include <unistd.h> // for getopts
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
