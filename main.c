@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <unistd.h> // for getopts
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
@@ -23,10 +24,18 @@ typedef struct fieldOrder {
 void readRefMag() {
     buffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
     wiringPiSPIDataRW(0,buffer,10);
-    uint32_t x = buffer[1] + (buffer[2] << 8) + (buffer[3] << 16);
-    uint32_t y = buffer[4] + (buffer[5] << 8) + (buffer[6] << 16);
-    uint32_t z = buffer[7] + (buffer[8] << 8) + (buffer[9] << 16);
-    printf("Raw: X=%08X, Y=%08X, Z=%08X\n", x, y, z);
+    uint32_t rX = 0 | buffer[3] | (buffer[2] << 8) | (buffer[1] << 16);
+    uint32_t rY = 0 | buffer[6] | (buffer[5] << 8) | (buffer[4] << 16);
+    uint32_t rZ = 0 | buffer[9] | (buffer[8] << 8) | (buffer[7] << 16);
+    printf("Raw: X=%08X, Y=%08X, Z=%08X\n", rX, rY, rZ);
+    int32_t x, y, z;
+    memcpy(&x, &rX, 4);
+    memcpy(&y, &rY, 4);
+    memcpy(&z, &rZ, 4);
+    x = ((x << 8) >> 8);
+    y = ((y << 8) >> 8);
+    z = ((z << 8) >> 8);
+    printf("Formatted: X=%d, Y=%d, Z=%d\n", x, y, z);
 }
 
 void readinputfile(char* filepath) {
