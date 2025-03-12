@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
+#include <string.h> //For memcpy()
 #include <math.h>
-#include <unistd.h> // for getopts
+#include <unistd.h> //For getopts
+#include <getopt.h> //Adding this include fixes the getopt error.
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 #include "main.h"
@@ -15,10 +16,11 @@ const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB. This is for 
 uint8_t *buffer;
 int refB[3]; //In nanotesla.
 
+//The fieldOrder struct contains ints for x, y, z in nanoTesla, as well as the int t in seconds. 
 typedef struct fieldOrder {
-    float x;
-    float y;
-    float z;
+    int x;
+    int y;
+    int z;
     int t;
 } fieldOrder_t;
 
@@ -28,7 +30,6 @@ void readRefB() {
     uint32_t rX = 0 | buffer[3] | (buffer[2] << 8) | (buffer[1] << 16);
     uint32_t rY = 0 | buffer[6] | (buffer[5] << 8) | (buffer[4] << 16);
     uint32_t rZ = 0 | buffer[9] | (buffer[8] << 8) | (buffer[7] << 16);
-    //printf("Raw: X=%08X, Y=%08X, Z=%08X\n", rX, rY, rZ);
     int32_t x, y, z;
     memcpy(&x, &rX, 4);
     memcpy(&y, &rY, 4);
@@ -36,7 +37,6 @@ void readRefB() {
     refB[0] = SENSITIVITY * ((x << 8) >> 8);
     refB[1] = SENSITIVITY * ((y << 8) >> 8);
     refB[2] = SENSITIVITY * ((z << 8) >> 8);
-    //printf("B = %dx + %dy + %dz nT\n", refB[0], refB[1], refB[2]);
 }
 
 void printRefB() {
