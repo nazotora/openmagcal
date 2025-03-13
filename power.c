@@ -1,47 +1,58 @@
-#include <stdio.h>
-#include <visa.h>
 
 // Generated in part by ChatGPT o3-mini-high in accordance with 
-// ECEDesign4890Syllabus2025SpringV1.pdf referencing EDU36311A-DC-Power-Supply-Programming-Guide
+// ECEDesign4890Syllabus2025SpringV1.pdf referencing Siglent SPD4000X_UserManual
 
-//This is a simple test script that performs an identity check with the Power Supply
+#include <stdio.h>
+#include <stdlib.h>
+#include <visa.h>
 
-int main() {
-    ViSession rm, instr;
+int main(void) {
+    ViSession defaultRM, instr;
     ViStatus status;
-    char response[256] = {0};
-    ViUInt32 retCount = 0;
+    char buffer[256];
 
-    // Open the VISA Resource Manager
-    status = viOpenDefaultRM(&rm);
+    // Open a session to the VISA Resource Manager
+    status = viOpenDefaultRM(&defaultRM);
     if (status < VI_SUCCESS) {
-        std::cout << "Error: Unable to open VISA Resource Manager" << std::endl;
-        return 1;
+        printf("Could not open a session to the VISA Resource Manager.\n");
+        return -1;
     }
 
-    // Open the instrument (replace with your actual resource string)
-    status = viOpen(rm, "USB0::0x0957::0x0407::MY1234567::INSTR", VI_NULL, VI_NULL, &instr);
+    // Open a session to the instrument.
+    // Replace the resource string below with your instrument's address.
+    status = viOpen(defaultRM, "USB0::0xF4ED::0xEE3A::123456::INSTR", VI_NULL, VI_NULL, &instr);
     if (status < VI_SUCCESS) {
-        std::cout << "Error: Unable to open instrument" << std::endl;
-        viClose(rm);
-        return 1;
+        printf("Could not connect to the instrument.\n");
+        viClose(defaultRM);
+        return -1;
     }
 
-    // Set timeout and termination character (newline)
-    viSetAttribute(instr, VI_ATTR_TMO_VALUE, 5000);
-    viSetAttribute(instr, VI_ATTR_TERMCHAR, '\n');
-    viSetAttribute(instr, VI_ATTR_TERMCHAR_EN, VI_TRUE);
+    // Clear the instrument buffers
+    viClear(instr);
 
-    // Send the *IDN? command to get the instrument identification
-    viWrite(instr, (ViBuf)"*IDN?\n", 6, &retCount);
+    // Send the *IDN? command to query the instrument's identification
+    status = viPrintf(instr, "*IDN?\n");
+    if (status < VI_SUCCESS) {
+        printf("Error writing the command to the instrument.\n");
+        viClose(instr);
+        viClose(defaultRM);
+        return -1;
+    }
 
-    // Read the response
-    viRead(instr, (ViBuf)response, sizeof(response) - 1, &retCount);
-    std::cout << "Instrument response: " << response << std::endl;
+    // Read the response from the instrument
+    status = viScanf(instr, "%t", buffer);
+    if (status < VI_SUCCESS) {
+        printf("Error reading the response from the instrument.\n");
+        viClose(instr);
+        viClose(defaultRM);
+        return -1;
+    }
 
-    // Close sessions
+    printf("Instrument Identification: %s\n", buffer);
+
+    // Close the sessions
     viClose(instr);
-    viClose(rm);
-    
+    viClose(defaultRM);
+
     return 0;
 }
