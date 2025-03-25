@@ -20,7 +20,7 @@ int main(void) {
 
     // Open a session to the instrument.
     // Replace the resource string below with your instrument's address.
-    status = viOpen(defaultRM, "USB0::0xF4ED::0xEE3A::123456::INSTR", VI_NULL, VI_NULL, &instr);
+    status = viOpen(defaultRM, "USB0::0xF4EC::SPD41A1D800196::INSTR", VI_NULL, VI_NULL, &instr);
     if (status < VI_SUCCESS) {
         printf("Could not connect to the instrument.\n");
         viClose(defaultRM);
