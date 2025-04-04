@@ -1,27 +1,60 @@
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <stdint.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#include "psu.h"
 
 const char* ADDRESS = "192.168.21.87";
-const uint16_t PORT = 5025;
-struct sockaddr_in socketAddr;
+const char* PORT = "5025";
+const struct timespec MICROSEC = {0, 1000};
+
+struct addrinfo* socketAddr;
 int socketFD = -1;
 
-char tcpBuffer[26];
+char tcpBuffer[32];
 
 void initConnection() {
-    socketAddr.sin_addr.s_addr = inet_addr(ADDRESS);
-    socketAddr.sin_port = PORT;
+    // Set up the addr hints:
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    // Get address info
+    if (getaddrinfo(ADDRESS, PORT, &hints, &socketAddr) != 0) {
+        fprintf(stderr, "Failed to set up address!\n");
+        exit(1);
+    }
+
+    // Create the socket file descriptor:
     socketFD = socket(AF_INET, SOCK_STREAM, 0); // Create IPv4 stream.
     if (socketFD == -1) {
         fprintf(stderr, "Failed to create socket!\n");
         exit(1);
     }
-    if (connect(socketFD, &socketAddr, sizeof(socketAddr)) != 0) {
+
+    // Connect to the socket address:
+    if (connect(socketFD, socketAddr->ai_addr, socketAddr->ai_addrlen) != 0) {
         fprintf(stderr, "Failed to connect to socket!\n");
         exit(2);
     }
+}
+
+void testConnection() {
+    if (socketFD == -1) {
+        fprintf(stderr, "Socket is not open!\n");
+        return;
+    }
+    send(socketFD, "*IDN?", 5, 0);
+    recv(socketFD, tcpBuffer, 26, 0);
+    printf("%26s", tcpBuffer);
 }
 
 void setAxisCurrent(float x, float y, float z) {
@@ -29,11 +62,17 @@ void setAxisCurrent(float x, float y, float z) {
         fprintf(stderr, "Socket is not open!\n");
         return;
     }
-    //"SOUR:CURR:SET CH1,0.000000" Example of structure, 26 characters + possible newline or null character.
-    snprintf(tcpBuffer, 26, "SOUR:CURR:SET CH1,%1.6f",x);
-    send(socketFD,tcpBuffer, 26, 0); //No flags currently. It is possible we might want MSG_DONTWAIT to make it non-blocking.
-    snprintf(tcpBuffer, 26, "SOUR:CURR:SET CH2,%1.6f",y);
-    send(socketFD,tcpBuffer, 26, 0);
-    snprintf(tcpBuffer, 26, "SOUR:CURR:SET CH3,%1.6f",z);
-    send(socketFD,tcpBuffer, 26, 0);
+    // "SOUR:CURR:SET CH1,0.000000" Example of structure, 26 characters + possible newline or null character.
+    // The nanosleep functions are to try and space the instructions out enough to allow proper configuration.
+    snprintf(tcpBuffer, 27, "SOUR:CURR:SET CH1,%1.6f\n",x);
+    send(socketFD, tcpBuffer, 26, 0);
+    nanosleep(&MICROSEC, NULL);
+
+    snprintf(tcpBuffer, 27, "SOUR:CURR:SET CH2,%1.6f\n",y);
+    send(socketFD, tcpBuffer, 26, 0);
+    nanosleep(&MICROSEC, NULL);
+
+    snprintf(tcpBuffer, 27, "SOUR:CURR:SET CH3,%1.6f\n",z);
+    send(socketFD, tcpBuffer, 26, 0);
+    nanosleep(&MICROSEC, NULL);
 }

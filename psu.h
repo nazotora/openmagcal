@@ -4,3 +4,4 @@
 // should be set.
 void initConnection();
 void setAxisCurrent(float x, float y, float z);
+void testConnection();
