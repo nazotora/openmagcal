@@ -3,8 +3,10 @@
 #include <stdint.h>
 #include <string.h> //For memcpy()
 #include <math.h>
+#include <fcntl.h> // fcntl
 #include <unistd.h> //For getopts
 #include <getopt.h> //Adding this include fixes the getopt error.
+#include <pthread.h>
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 #include "main.h"
@@ -23,6 +25,13 @@ typedef struct fieldOrder {
     int z;
     int t;
 } fieldOrder_t;
+
+typedef struct fieldOrderNode {
+    fieldOrder_t order;
+    fieldOrderNode_t* next;
+} fieldOrderNode_t;
+
+fieldOrderNode_t* head;
 
 void readRefB() {
     buffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
@@ -61,6 +70,8 @@ void readinputfile(char* filepath) {
         // read in each line as its own input
         float x, y, z, t;
         sscanf(line, "%f %f %f %f", &x, &y, &z, &t);
+
+
     }
 
     fclose(fp);
@@ -75,19 +86,24 @@ int main(int argc, char** argv) {
         switch(c) {
             case 'f':
                 filemode = true;
+                filepath = optarg;
                 break;
             case ':':
                 log_error("Option -%c requires an operand.\n", optopt);
+                exit(1);
                 break;
             case '?':
                 log_error("Unrecognized option: '-%c'\n", optopt);
+                exit(1);
                 break;
         }
     }
 
-    // file reading.
-    // currently for ease of use this just throws the entire thing in memory.
-
+    if (filemode) {
+        // file reading.
+        // currently for ease of use this just throws the entire thing in memory.
+        readinputfile(filepath);
+    }
 
     //setup:
     buffer = (uint8_t*)calloc(sizeof(char), 10);
@@ -100,10 +116,35 @@ int main(int argc, char** argv) {
     buffer[1] = 0b01110001;
     wiringPiSPIDataRW(0, buffer, 2);
 
+    // set file status flag of the stdin file handle to make it non-blocking.
+    // this is required so that the read command doesnt lock the main thread
+    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
     //loop:
     while (1) {
         readRefB();
         printRefB();
+
+        if (!filemode) {
+            ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
+            if (n > 0) {
+                // stuff in stdin :)
+                buffer[n] = '\0';
+                printf("%s\n", buffer);
+                
+                // test the provided input is good.
+                if (false) {
+                    // add to command queue.
+                }
+    
+                // clear out what we had in stdin (not a typo)
+                int c;
+                while ((c = getchar()) != '\n' && c != EOF);
+            }
+        }
+
+        // get latest 
         sleep(1); //Sleep for 1 second.
     }
     return 0;
