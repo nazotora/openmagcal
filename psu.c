@@ -18,7 +18,7 @@ const struct timespec MICROSEC = {0, 1000};
 struct addrinfo* socketAddr;
 int socketFD = -1;
 
-char tcpBuffer[32];
+char tcpBuffer[128];
 
 void initConnection() {
     // Set up the addr hints:
@@ -64,15 +64,31 @@ void setAxisCurrent(float x, float y, float z) {
     }
     // "SOUR:CURR:SET CH1,0.000000" Example of structure, 26 characters + possible newline or null character.
     // The nanosleep functions are to try and space the instructions out enough to allow proper configuration.
+    snprintf(tcpBuffer, 127, "SOUR:CURR:SET CH1,%1.6f\nSOUR:CURR:SET CH2,%1.6f\nSOUR:CURR:SET CH3,%1.6f\n", x, y, z);
+    send(socketFD, tcpBuffer, 81, 0);
+}
+
+void closeConnection() {
+    shutdown(socketFD, SHUT_RDWR);
+}
+/*
+void setAxisCurrent(float x, float y, float z) {
+    if (socketFD == -1) {
+        fprintf(stderr, "Socket is not open!\n");
+        return;
+    }
+    // "SOUR:CURR:SET CH1,0.000000" Example of structure, 26 characters + possible newline or null character.
+    // The nanosleep functions are to try and space the instructions out enough to allow proper configuration.
     snprintf(tcpBuffer, 31, "SOUR:CURR:SET CH1,%1.6f\n",x);
-    send(socketFD, tcpBuffer, 26, 0);
+    send(socketFD, tcpBuffer, 27, 0);
     nanosleep(&MICROSEC, NULL);
 
     snprintf(tcpBuffer, 31, "SOUR:CURR:SET CH2,%1.6f\n",y);
-    send(socketFD, tcpBuffer, 26, 0);
+    send(socketFD, tcpBuffer, 27, 0);
     nanosleep(&MICROSEC, NULL);
 
     snprintf(tcpBuffer, 31, "SOUR:CURR:SET CH3,%1.6f\n",z);
-    send(socketFD, tcpBuffer, 26, 0);
+    send(socketFD, tcpBuffer, 27, 0);
     nanosleep(&MICROSEC, NULL);
 }
+*/
