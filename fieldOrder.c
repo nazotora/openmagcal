@@ -7,7 +7,7 @@ fieldOrderQueue_t* fieldOrderQueue_init() {
     return queue;
 }
 
-fieldOrderNode_t* fieldOrderNode_create(int x, int y, int z, int t) {
+fieldOrderNode_t* fieldOrderNode_create(float x, float y, float z, int t) {
     fieldOrderNode_t* order = malloc(sizeof(fieldOrderNode_t));
     order->x = x;
     order->y = y;

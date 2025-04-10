@@ -9,6 +9,8 @@
 #include <pthread.h>
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
+
+#include "fieldOrder.h"
 #include "main.h"
 
 //Constants:
@@ -18,20 +20,7 @@ const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB. This is for 
 uint8_t *buffer;
 int refB[3]; //In nanotesla.
 
-//The fieldOrder struct contains ints for x, y, z in nanoTesla, as well as the int t in seconds. 
-typedef struct fieldOrder {
-    int x;
-    int y;
-    int z;
-    int t;
-} fieldOrder_t;
-
-typedef struct fieldOrderNode {
-    fieldOrder_t order;
-    fieldOrderNode_t* next;
-} fieldOrderNode_t;
-
-fieldOrderNode_t* head;
+fieldOrderQueue_t* fields;
 
 void readRefB() {
     buffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
@@ -56,8 +45,19 @@ void printRefB() {
     printf("B = %.3fx%+.3fy%+.3fz uT (|B| = %.3f)\n",bX, bY, bZ, bT);
 }
 
+int addOrder(char* buf) {
+    float x, y, z;
+    int t;
+    int status = sscanf(buf, "%f %f %f %d", &x, &y, &z, &t);
+    if (!status) {
+        return 1;
+    }
+    fieldOrderQueue_enqueue(fields, fieldOrderNode_create(x, y, z, t));
+    return 0;
+}
+
 void readinputfile(char* filepath) {
-    FILE *fp = fopen(filepath, "r");
+    FILE* fp = fopen(filepath, "r");
     if (fp == NULL) {
         log_error("File %s not found.", filepath);
         exit(1);
@@ -67,11 +67,10 @@ void readinputfile(char* filepath) {
     char* line = NULL;
     size_t len = 0;
     while((read = getline(&line, &len, fp)) != -1) {
-        // read in each line as its own input
-        float x, y, z, t;
-        sscanf(line, "%f %f %f %f", &x, &y, &z, &t);
-
-
+        if (addOrder(line)) {
+            printf("Malformed field inclusion; exiting.\n");
+            exit(1);
+        }
     }
 
     fclose(fp);
@@ -99,6 +98,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    fields = fieldOrderQueue_init();
     if (filemode) {
         // file reading.
         // currently for ease of use this just throws the entire thing in memory.
@@ -133,9 +133,10 @@ int main(int argc, char** argv) {
                 buffer[n] = '\0';
                 printf("%s\n", buffer);
                 
-                // test the provided input is good.
-                if (false) {
+                // try to add to queue.
+                if (addOrder(buffer)) {
                     // add to command queue.
+                    printf("Malformed field inclusion! Ignoring...\n");
                 }
     
                 // clear out what we had in stdin (not a typo)
