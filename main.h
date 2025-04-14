@@ -17,3 +17,7 @@
 /** Default CLI options. */
 static bool filemode = false;
 static char* filepath;
+
+
+/** Constants */
+const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB. This is for a 200 cycle measurement (the default).

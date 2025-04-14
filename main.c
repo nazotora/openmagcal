@@ -11,10 +11,8 @@
 #include <wiringPiSPI.h>
 
 #include "fieldOrder.h"
+#include "psu.h"
 #include "main.h"
-
-//Constants:
-const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB. This is for a 200 cycle measurement (the default).
 
 //Globals:
 uint8_t *buffer;
@@ -109,8 +107,7 @@ int main(int argc, char** argv) {
     buffer = (uint8_t*)calloc(sizeof(char), 10);
 
     printf("Setting up Magnetometer...\n");
-    //The RM3100 wants CPOL=CPHA, so mode 0 or 3. 
-    wiringPiSPISetupMode(0,9600,3); //Channel=0?, Speed=9600?, Mode=3. Do not alter unless you know what you're doing!
+    wiringPiSPISetupMode(0,9600,3); //Channel = 0, Speed = 9600 Bd, Mode = 3. Do not alter unless you know what you're doing!
     //Initiate continuous measurement mode:
     buffer[0] = 0x01;
     buffer[1] = 0b01110001;
@@ -120,6 +117,9 @@ int main(int argc, char** argv) {
     // this is required so that the read command doesnt lock the main thread
     int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+    //Initialize connection to the PSU:
+    initConnection();
 
     //loop:
     while (1) {
