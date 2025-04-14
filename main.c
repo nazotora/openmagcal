@@ -10,6 +10,7 @@
 #include <wiringPiSPI.h>
 
 #include <time.h>
+#include <signal.h>
 
 #include "fieldOrder.h"
 #include "psu.h"
@@ -19,6 +20,7 @@
 uint8_t *buffer; //SPI buffer
 int refB[3]; //Reference field (in nanotesla)
 fieldOrderQueue_t* fields; //Linked list of fields
+fieldOrderNode_t latestOrder;
 timer_t* timer; //Field changeover timer
 
 void readRefB() {
@@ -78,15 +80,18 @@ void readinputfile(char* filepath) {
 }
 
 void updateField() {
-    fieldOrderNode_t* latestOrder; /*TODO: Retrieve the latest order*/
     //Compute the necessary currents:
-    double iX = (latestOrder->x - (double)refB[0]) * SKEW[0] * NANO;
-    double iY = (latestOrder->y - (double)refB[1]) * SKEW[1] * NANO;
-    double iZ = (latestOrder->z - (double)refB[2]) * SKEW[2] * NANO;
+    double iX = (latestOrder.x - (double)refB[0]) * SKEW[0] * NANO;
+    double iY = (latestOrder.y - (double)refB[1]) * SKEW[1] * NANO;
+    double iZ = (latestOrder.z - (double)refB[2]) * SKEW[2] * NANO;
     //Send the currents to the PSU:
     setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
+}
+
+void updateOrder(int signal) {
+    latestOrder; ////TODO: Attach this to the queue, add empty queue behavior!
     //Reset the update timer:
-    struct timespec newTime = {latestOrder->t, 0};
+    struct timespec newTime = {latestOrder.t, 0};
     struct itimerspec newInterval = {ZERO_TIME, newTime};
     timer_settime(timer, 0, &newInterval, NULL);
 }
@@ -136,10 +141,24 @@ int main(int argc, char** argv) {
     //Initialize connection to the PSU:
     initConnection(address, port);
 
+    //Set up the signal-loop system:
+    struct sigaction timerAction;
+    timerAction.sa_handler = updateOrder;
+    sigemptyset(&timerAction.sa_mask);
+    sigaction(SIGUSR1, &timerAction, NULL);
+    struct sigevent timerEvent;
+    timerEvent.sigev_notify = SIGEV_SIGNAL;
+    timerEvent.sigev_signo = SIGUSR1;
+    timerEvent.sigev_value.sival_int = 0;
+    timer_create(CLOCK_REALTIME, &timerEvent, timer);
+    //Start the first loop:
+    updateOrder(0);
+
     //loop:
     while (1) {
         readRefB();
         printRefB();
+        updateField();
 
         if (!filemode) {
             ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);

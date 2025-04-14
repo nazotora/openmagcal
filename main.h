@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <time.h>
+#include <signal.h>
 
 #define INPUT_BUFFER_SIZE 256
 
