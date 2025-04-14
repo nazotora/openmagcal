@@ -6,19 +6,20 @@
 #include <fcntl.h> // fcntl
 #include <unistd.h> //For getopts
 #include <getopt.h> //Adding this include fixes the getopt error.
-#include <pthread.h>
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
+
+#include <time.h>
 
 #include "fieldOrder.h"
 #include "psu.h"
 #include "main.h"
 
 //Globals:
-uint8_t *buffer;
-int refB[3]; //In nanotesla.
-
-fieldOrderQueue_t* fields;
+uint8_t *buffer; //SPI buffer
+int refB[3]; //Reference field (in nanotesla)
+fieldOrderQueue_t* fields; //Linked list of fields
+timer_t* timer; //Field changeover timer
 
 void readRefB() {
     buffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
@@ -74,6 +75,20 @@ void readinputfile(char* filepath) {
     fclose(fp);
     if (line) free(line);
     return;
+}
+
+void updateField() {
+    fieldOrderNode_t* latestOrder; /*TODO: Retrieve the latest order*/
+    //Compute the necessary currents:
+    double iX = (latestOrder->x - (double)refB[0]) * SKEW[0] * NANO;
+    double iY = (latestOrder->y - (double)refB[1]) * SKEW[1] * NANO;
+    double iZ = (latestOrder->z - (double)refB[2]) * SKEW[2] * NANO;
+    //Send the currents to the PSU:
+    setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
+    //Reset the update timer:
+    struct timespec newTime = {latestOrder->t, 0};
+    struct itimerspec newInterval = {ZERO_TIME, newTime};
+    timer_settime(timer, 0, &newInterval, NULL);
 }
 
 int main(int argc, char** argv) {
@@ -145,8 +160,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        // get latest 
-        sleep(1); //Sleep for 1 second.
+
     }
     return 0;
 }
