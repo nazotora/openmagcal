@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 
     //Initialize connection to the PSU:
-    initConnection();
+    initConnection(address, port);
 
     //loop:
     while (1) {

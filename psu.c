@@ -11,8 +11,6 @@
 
 #include "psu.h"
 
-const char* ADDRESS = "192.168.21.87";
-const char* PORT = "5025";
 const struct timespec MICROSEC = {0, 1000};
 
 struct addrinfo* socketAddr;
@@ -20,7 +18,7 @@ int socketFD = -1;
 
 char tcpBuffer[128];
 
-void initConnection() {
+void initConnection(const char* address, const char* port) {
     // Set up the addr hints:
     struct addrinfo hints;
     memset(&hints, 0, sizeof hints);
@@ -28,7 +26,7 @@ void initConnection() {
     hints.ai_socktype = SOCK_STREAM;
 
     // Get address info
-    if (getaddrinfo(ADDRESS, PORT, &hints, &socketAddr) != 0) {
+    if (getaddrinfo(address, port, &hints, &socketAddr) != 0) {
         fprintf(stderr, "Failed to set up address!\n");
         exit(1);
     }

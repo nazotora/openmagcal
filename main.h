@@ -17,6 +17,8 @@
 /** Default CLI options. */
 static bool filemode = false;
 static char* filepath;
+static char* address = "192.168.21.87";
+static char* port = "5025";
 
 
 /** Constants */
