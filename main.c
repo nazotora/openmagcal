@@ -91,9 +91,8 @@ void updateField() {
 void updateOrder(int signal) {
     latestOrder; ////TODO: Attach this to the queue, add empty queue behavior!
     //Reset the update timer:
-    struct timespec newTime = {latestOrder.t, 0};
-    struct itimerspec newInterval = {ZERO_TIME, newTime};
-    timer_settime(timer, 0, &newInterval, NULL);
+    struct itimerspec newInterval = {ZERO_TIME, {latestOrder.t, 0}};
+    timer_settime(*timer, 0, &newInterval, NULL);
 }
 
 int main(int argc, char** argv) {
@@ -142,6 +141,7 @@ int main(int argc, char** argv) {
     initConnection(address, port);
 
     //Set up the signal-loop system:
+    timer = calloc(1, sizeof(timer_t*));
     struct sigaction timerAction;
     timerAction.sa_handler = updateOrder;
     sigemptyset(&timerAction.sa_mask);
