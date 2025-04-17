@@ -33,6 +33,9 @@ fieldOrderNode_t* fieldOrderQueue_dequeue(fieldOrderQueue_t* queue) {
     fieldOrderNode_t* current_head = queue->head;
     if (current_head) {
         fieldOrderNode_t* next = current_head->next;
+        if (!next) {
+            queue->tail = NULL;
+        }
         queue->head = next;
     }
     return current_head;
