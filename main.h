@@ -27,4 +27,9 @@ static char* port = "5025";
 const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB. This is for a 200 cycle measurement (the default).
 const struct timespec ZERO_TIME = {0, 0}; //Zero time struct - used to specify no repeat interval in the main timer.
 const double NANO = 1E-9; //Use this to convert a nano-prefixed value to its base form (A <- nA * NANO).
-const double SKEW[] = {1.0f, 1.0f, 1.0f}; //Skew factors - These do the transform from magnetic field values to current values.
+const double SKEW[] = 
+{
+    0.00000181818181818, //X-axis
+    0.00000277700638711, //Y-axis
+    0.00000296296296296  //Z-axis
+}; //Skew factors - These do the transform from magnetic field values to current values.
