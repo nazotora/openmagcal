@@ -86,6 +86,10 @@ void updateField() {
     double iZ = (latestOrder.z - (double)refB[2]) * SKEW[2] * NANO;
     //Send the currents to the PSU:
     setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
+    //Update the sign pins:
+    digitalWrite(17, iX < 0);
+    digitalWrite(22, iY < 0);
+    digitalWrite(27, iZ < 0);
 }
 
 void updateOrder(int signal) {
@@ -122,7 +126,8 @@ int main(int argc, char** argv) {
         readinputfile(filepath);
     }
 
-    //setup:
+
+    ////setup:
     buffer = (uint8_t*)calloc(sizeof(char), 10);
 
     printf("Setting up Magnetometer...\n");
@@ -140,6 +145,12 @@ int main(int argc, char** argv) {
     //Initialize connection to the PSU:
     initConnection(address, port);
 
+    //Set up GPIO pins for sign:
+    wiringPiSetup();
+    pinMode(17, OUTPUT);
+    pinMode(22, OUTPUT);
+    pinMode(27, OUTPUT);
+
     //Set up the signal-loop system:
     timer = calloc(1, sizeof(timer_t*));
     struct sigaction timerAction;
@@ -154,7 +165,9 @@ int main(int argc, char** argv) {
     //Start the first loop:
     updateOrder(0);
 
-    //loop:
+
+
+    ////loop:
     while (1) {
         readRefB();
         printRefB();
