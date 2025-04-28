@@ -21,6 +21,7 @@ uint8_t *buffer; //SPI buffer
 int refB[3]; //Reference field (in nanotesla)
 fieldOrderQueue_t* fields; //Linked list of fields
 fieldOrderNode_t latestOrder;
+bool latestOrderPresent;
 timer_t* timer; //Field changeover timer
 
 void readRefB() {
@@ -80,23 +81,39 @@ void readinputfile(char* filepath) {
 }
 
 void updateField() {
-    //Compute the necessary currents:
-    double iX = (latestOrder.x - (double)refB[0]) * SKEW[0] * NANO;
-    double iY = (latestOrder.y - (double)refB[1]) * SKEW[1] * NANO;
-    double iZ = (latestOrder.z - (double)refB[2]) * SKEW[2] * NANO;
-    //Send the currents to the PSU:
-    setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
-    //Update the sign pins:
-    digitalWrite(17, iX < 0);
-    digitalWrite(22, iY < 0);
-    digitalWrite(27, iZ < 0);
+    if (latestOrderPresent) {
+        //Compute the necessary currents:
+        double iX = (latestOrder.x - (double)refB[0]) * SKEW[0] * NANO;
+        double iY = (latestOrder.y - (double)refB[1]) * SKEW[1] * NANO;
+        double iZ = (latestOrder.z - (double)refB[2]) * SKEW[2] * NANO;
+        //Send the currents to the PSU:
+        setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
+        //Update the sign pins:
+        digitalWrite(SGN_X, iX < 0);
+        digitalWrite(SGN_Y, iY < 0);
+        digitalWrite(SGN_Z, iZ < 0);
+    } else {
+        // If no order, then default to supplying no power.
+        setAxisCurrent(0.0, 0.0, 0.0);
+        digitalWrite(SGN_X, 0);
+        digitalWrite(SGN_Y, 0);
+        digitalWrite(SGN_Z, 0);
+    }
 }
 
 void updateOrder(int signal) {
-    latestOrder; ////TODO: Attach this to the queue, add empty queue behavior!
-    //Reset the update timer:
-    struct itimerspec newInterval = {ZERO_TIME, {latestOrder.t, 0}};
-    timer_settime(*timer, 0, &newInterval, NULL);
+    latestOrder; ////TODO: Attach this to the queue!
+    if (false) { //TODO: This is the empty behavior!
+        latestOrderPresent = FALSE;
+        // Wait for 5 seconds for a new order:
+        struct itimerspec newInterval = {ZERO_TIME, {5, 0}};
+        timer_settime(*timer, 0, &newInterval, NULL);
+    } else {
+        //Reset the update timer:
+        latestOrderPresent = TRUE;
+        struct itimerspec newInterval = {ZERO_TIME, {latestOrder.t, 0}};
+        timer_settime(*timer, 0, &newInterval, NULL);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -147,9 +164,9 @@ int main(int argc, char** argv) {
 
     //Set up GPIO pins for sign:
     wiringPiSetup();
-    pinMode(17, OUTPUT);
-    pinMode(22, OUTPUT);
-    pinMode(27, OUTPUT);
+    pinMode(SGN_X, OUTPUT);
+    pinMode(SGN_Y, OUTPUT);
+    pinMode(SGN_Z, OUTPUT);
 
     //Set up the signal-loop system:
     timer = calloc(1, sizeof(timer_t*));
@@ -191,8 +208,8 @@ int main(int argc, char** argv) {
                 while ((c = getchar()) != '\n' && c != EOF);
             }
         }
-
-
+        //Used to sleep for 1 us so that the PSU updates are not sent faster than the connection can handle.
+        nanosleep(&MICROSECOND, NULL);
     }
     return 0;
 }

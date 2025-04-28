@@ -4,6 +4,11 @@
 
 #define INPUT_BUFFER_SIZE 256
 
+/** Defines */
+#define SGN_X 22
+#define SGN_Y 27
+#define SGN_Z 17
+
 #define log(fp, ...)          \
     fprintf(fp, __VA_ARGS__); \
     fflush(fp);
@@ -26,6 +31,7 @@ static char* port = "5025";
 /** Constants */
 const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB. This is for a 200 cycle measurement (the default).
 const struct timespec ZERO_TIME = {0, 0}; //Zero time struct - used to specify no repeat interval in the main timer.
+const struct timespec MICROSECOND = {0, 1000}; // 1 us time struct - used to add a delay between cycles.
 const double NANO = 1E-9; //Use this to convert a nano-prefixed value to its base form (A <- nA * NANO).
 const double SKEW[] = 
 {
