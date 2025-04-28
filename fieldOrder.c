@@ -41,6 +41,13 @@ fieldOrderNode_t* fieldOrderQueue_dequeue(fieldOrderQueue_t* queue) {
     return current_head;
 }
 
+int fieldOrderQueue_isEmpty(fieldOrderQueue_t* queue) {
+    if (queue->head || queue->tail) {
+        return 0;
+    }
+    return 1;
+}
+
 // this will free from the beginning.
 void fieldOrderQueue_free(fieldOrderQueue_t* queue) {
     fieldOrderNode_t* next = queue->head;
