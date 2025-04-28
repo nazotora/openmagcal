@@ -80,8 +80,7 @@ void readinputfile(char* filepath) {
 }
 
 void updateOrder(int signal) {
-    latestOrder; ////TODO: Attach this to the queue!
-    if (fieldOrderQueue_isEmpty(queue)) { //TODO: This is the empty behavior!
+    if (fieldOrderQueue_isEmpty(queue)) {
         // Wait for 5 seconds for a new order:
         if (latestOrder != NULL) free(latestOrder);
         latestOrder = NULL;
@@ -108,7 +107,7 @@ void updateField() {
         digitalWrite(SGN_Y, iY < 0);
         digitalWrite(SGN_Z, iZ < 0);
     } else {
-        if(fieldOrderQueue_isEmpty(queue)) {
+        if(!fieldOrderQueue_isEmpty(queue)) {
             // signal is non-authoritative in this instance.
             // restarting updateOrder loop.
             updateOrder(SIGUSR1);
