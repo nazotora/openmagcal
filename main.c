@@ -159,20 +159,24 @@ int main(int argc, char** argv) {
     buffer[1] = 0b01110001;
     wiringPiSPIDataRW(0, buffer, 2);
 
+    printf("Setting up IO...\n");
     // set file status flag of the stdin file handle to make it non-blocking.
     // this is required so that the read command doesnt lock the main thread
     int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 
+    printf("Setting up IP connection...\n");
     //Initialize connection to the PSU:
     initConnection(address, port);
 
+    printf("Configuring pins...\n");
     //Set up GPIO pins for sign:
     wiringPiSetup();
     pinMode(SGN_X, OUTPUT);
     pinMode(SGN_Y, OUTPUT);
     pinMode(SGN_Z, OUTPUT);
 
+    printf("Configuring Timer...\n");
     //Set up the signal-loop system:
     timer = calloc(1, sizeof(timer_t*));
     struct sigaction timerAction;
@@ -184,6 +188,8 @@ int main(int argc, char** argv) {
     timerEvent.sigev_signo = SIGUSR1;
     timerEvent.sigev_value.sival_int = 0;
     timer_create(CLOCK_REALTIME, &timerEvent, timer);
+
+    printf("Initializing...\n");
     //Start the first loop:
     updateOrder(0);
 
