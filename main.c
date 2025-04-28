@@ -19,9 +19,8 @@
 //Globals:
 uint8_t *buffer; //SPI buffer
 int refB[3]; //Reference field (in nanotesla)
-fieldOrderQueue_t* fields; //Linked list of fields
-fieldOrderNode_t latestOrder;
-bool latestOrderPresent;
+fieldOrderQueue_t* queue; //Linked list of fields
+fieldOrderNode_t* latestOrder;
 timer_t* timer; //Field changeover timer
 
 void readRefB() {
@@ -54,7 +53,7 @@ int addOrder(char* buf) {
     if (!status) {
         return 1;
     }
-    fieldOrderQueue_enqueue(fields, fieldOrderNode_create(x, y, z, t));
+    fieldOrderQueue_enqueue(queue, fieldOrderNode_create(x, y, z, t));
     return 0;
 }
 
@@ -80,12 +79,28 @@ void readinputfile(char* filepath) {
     return;
 }
 
+void updateOrder(int signal) {
+    latestOrder; ////TODO: Attach this to the queue!
+    if (fieldOrderQueue_isEmpty(queue)) { //TODO: This is the empty behavior!
+        // Wait for 5 seconds for a new order:
+        if (latestOrder != NULL) free(latestOrder);
+        latestOrder = NULL;
+        //struct itimerspec newInterval = {ZERO_TIME, {5, 0}};
+        //timer_settime(*timer, 0, &newInterval, NULL);
+    } else {
+        //Reset the update timer:
+        latestOrder = fieldOrderQueue_dequeue(queue);
+        struct itimerspec newInterval = {ZERO_TIME, {(latestOrder->t), 0}};
+        timer_settime(*timer, 0, &newInterval, NULL);
+    }
+}
+
 void updateField() {
-    if (latestOrderPresent) {
+    if (latestOrder) {
         //Compute the necessary currents:
-        double iX = (latestOrder.x - (double)refB[0]) * SKEW[0] * NANO;
-        double iY = (latestOrder.y - (double)refB[1]) * SKEW[1] * NANO;
-        double iZ = (latestOrder.z - (double)refB[2]) * SKEW[2] * NANO;
+        double iX = (latestOrder->x - (double)refB[0]) * SKEW[0] * NANO;
+        double iY = (latestOrder->y - (double)refB[1]) * SKEW[1] * NANO;
+        double iZ = (latestOrder->z - (double)refB[2]) * SKEW[2] * NANO;
         //Send the currents to the PSU:
         setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
         //Update the sign pins:
@@ -93,26 +108,17 @@ void updateField() {
         digitalWrite(SGN_Y, iY < 0);
         digitalWrite(SGN_Z, iZ < 0);
     } else {
+        if(fieldOrderQueue_isEmpty(queue)) {
+            // signal is non-authoritative in this instance.
+            // restarting updateOrder loop.
+            updateOrder(SIGUSR1);
+            return;
+        }
         // If no order, then default to supplying no power.
         setAxisCurrent(0.0, 0.0, 0.0);
         digitalWrite(SGN_X, 0);
         digitalWrite(SGN_Y, 0);
         digitalWrite(SGN_Z, 0);
-    }
-}
-
-void updateOrder(int signal) {
-    latestOrder; ////TODO: Attach this to the queue!
-    if (false) { //TODO: This is the empty behavior!
-        latestOrderPresent = FALSE;
-        // Wait for 5 seconds for a new order:
-        struct itimerspec newInterval = {ZERO_TIME, {5, 0}};
-        timer_settime(*timer, 0, &newInterval, NULL);
-    } else {
-        //Reset the update timer:
-        latestOrderPresent = TRUE;
-        struct itimerspec newInterval = {ZERO_TIME, {latestOrder.t, 0}};
-        timer_settime(*timer, 0, &newInterval, NULL);
     }
 }
 
@@ -136,7 +142,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    fields = fieldOrderQueue_init();
+    queue = fieldOrderQueue_init();
     if (filemode) {
         // file reading.
         // currently for ease of use this just throws the entire thing in memory.

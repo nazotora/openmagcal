@@ -18,5 +18,6 @@ fieldOrderQueue_t* fieldOrderQueue_init();
 fieldOrderNode_t* fieldOrderNode_create(float x, float y, float z, int t);
 void fieldOrderQueue_enqueue(fieldOrderQueue_t* queue, fieldOrderNode_t* node);
 fieldOrderNode_t* fieldOrderQueue_dequeue(fieldOrderQueue_t* queue);
+int fieldOrderQueue_isEmpty(fieldOrderQueue_t* queue);
 
 void fieldOrderQueue_free(fieldOrderQueue_t* queue);
