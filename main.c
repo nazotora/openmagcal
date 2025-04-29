@@ -84,8 +84,11 @@ void updateOrder(int signal) {
         // Wait for 5 seconds for a new order:
         if (latestOrder != NULL) free(latestOrder);
         latestOrder = NULL;
-        //struct itimerspec newInterval = {ZERO_TIME, {5, 0}};
-        //timer_settime(*timer, 0, &newInterval, NULL);
+
+        if (filemode) { //If we are in filemode, just end the program once we run out of commands.
+            printf("Instructions completed!\n");
+            terminate(SIGTERM);
+        }
     } else {
         //Reset the update timer:
         latestOrder = fieldOrderQueue_dequeue(queue);
@@ -122,6 +125,16 @@ void updateField() {
 }
 
 void terminate(int signal) {
+    //Shut off the timer. It is important that this happens first, as the timer could otherwise trigger during the termination routine.
+    timer_delete(*timer);
+    free(timer);
+    //Shut down the magnetometer connection:
+    wiringPiSPIClose(0);
+    free(buffer);
+    //Get rid of the field order queue:
+    fieldOrderQueue_free(queue);
+    if (latestOrder != NULL) free(latestOrder);
+    //Finally, close the TCP connection and exit the program:
     if (closeConnection()) {
         fprintf(stderr,"Failed to close socket!\n");
         exit(3);
@@ -233,8 +246,8 @@ int main(int argc, char** argv) {
                 while ((c = getchar()) != '\n' && c != EOF);
             }
         }
-        //Used to sleep for 1 us so that the PSU updates are not sent faster than the connection can handle.
-        nanosleep(&MICROSECOND, NULL);
+        //Used to sleep for 1 ms so that the PSU updates are not sent faster than the connection can handle.
+        nanosleep(&CYCLE_TIME, NULL);
     }
     return 0;
 }
