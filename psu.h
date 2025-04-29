@@ -5,4 +5,4 @@
 void initConnection(const char* address, const char* port);
 void setAxisCurrent(double x, double y, double z);
 void testConnection();
-void closeConnection();
+int closeConnection();
