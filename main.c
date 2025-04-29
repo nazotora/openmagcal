@@ -23,6 +23,25 @@ fieldOrderQueue_t* queue; //Linked list of fields
 fieldOrderNode_t* latestOrder;
 timer_t* timer; //Field changeover timer
 
+void terminate(int signal) {
+    //Shut off the timer. It is important that this happens first, as the timer could otherwise trigger during the termination routine.
+    timer_delete(*timer);
+    free(timer);
+    //Shut down the magnetometer connection:
+    wiringPiSPIClose(0);
+    free(buffer);
+    //Get rid of the field order queue:
+    fieldOrderQueue_free(queue);
+    if (latestOrder != NULL) free(latestOrder);
+    //Finally, close the TCP connection and exit the program:
+    if (closeConnection()) {
+        fprintf(stderr,"Failed to close socket!\n");
+        exit(3);
+    } else {
+        exit(0);
+    }
+}
+
 void readRefB() {
     buffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
     wiringPiSPIDataRW(0,buffer,10);
@@ -121,25 +140,6 @@ void updateField() {
         digitalWrite(SGN_X, 0);
         digitalWrite(SGN_Y, 0);
         digitalWrite(SGN_Z, 0);
-    }
-}
-
-void terminate(int signal) {
-    //Shut off the timer. It is important that this happens first, as the timer could otherwise trigger during the termination routine.
-    timer_delete(*timer);
-    free(timer);
-    //Shut down the magnetometer connection:
-    wiringPiSPIClose(0);
-    free(buffer);
-    //Get rid of the field order queue:
-    fieldOrderQueue_free(queue);
-    if (latestOrder != NULL) free(latestOrder);
-    //Finally, close the TCP connection and exit the program:
-    if (closeConnection()) {
-        fprintf(stderr,"Failed to close socket!\n");
-        exit(3);
-    } else {
-        exit(0);
     }
 }
 
