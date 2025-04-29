@@ -150,6 +150,13 @@ int main(int argc, char** argv) {
         }
     }
 
+    //Set up the termination handler:
+    struct sigaction termAction;
+    termAction.sa_handler = terminate;
+    sigemptyset(&termAction.sa_mask);
+    sigaction(SIGTERM, &termAction, NULL);
+
+    printf("Initializing Queue...\n");
     queue = fieldOrderQueue_init();
     if (filemode) {
         // file reading.
@@ -157,8 +164,6 @@ int main(int argc, char** argv) {
         readinputfile(filepath);
     }
 
-
-    ////setup:
     buffer = (uint8_t*)calloc(sizeof(char), 10);
 
     printf("Setting up Magnetometer...\n");
