@@ -121,6 +121,15 @@ void updateField() {
     }
 }
 
+void terminate(int signal) {
+    if (closeConnection()) {
+        fprintf(stderr,"Failed to close socket!\n");
+        exit(3);
+    } else {
+        exit(0);
+    }
+}
+
 int main(int argc, char** argv) {
     int c; // why int... :(
     while ((c = getopt(argc, argv, "f:")) != -1) {
