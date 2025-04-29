@@ -7,7 +7,7 @@ fieldOrderQueue_t* fieldOrderQueue_init() {
 }
 
 fieldOrderNode_t* fieldOrderNode_create(float x, float y, float z, int t) {
-    fieldOrderNode_t* order = (fieldOrderQueue_t*)calloc(sizeof(fieldOrderNode_t), 1);
+    fieldOrderNode_t* order = (fieldOrderNode_t*)calloc(sizeof(fieldOrderNode_t), 1);
     order->x = x;
     order->y = y;
     order->z = z;
