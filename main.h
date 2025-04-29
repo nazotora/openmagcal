@@ -31,7 +31,7 @@ static char* port = "5025";
 /** Constants */
 const int SENSITIVITY = 13; //Sensitivity (inverse gain) in nT/LSB. This is for a 200 cycle measurement (the default).
 const struct timespec ZERO_TIME = {0, 0}; //Zero time struct - used to specify no repeat interval in the main timer.
-const struct timespec CYCLE_TIME = {0, 1000000}; // Time struct used to specify delay between current updates (currently 1 ms).
+const struct timespec CYCLE_TIME = {1, 0}; // Time struct used to specify delay between current updates (currently 1 s).
 const double NANO = 1E-9; //Use this to convert a nano-prefixed value to its base form (A <- nA * NANO).
 const double SKEW[] = 
 {

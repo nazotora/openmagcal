@@ -107,6 +107,8 @@ void updateOrder(int signal) {
         if (filemode) { //If we are in filemode, just end the program once we run out of commands.
             printf("Instructions completed!\n");
             terminate(SIGTERM);
+        } else {
+            printf("Enter new command: ");
         }
     } else {
         //Reset the update timer:
@@ -225,7 +227,7 @@ int main(int argc, char** argv) {
     ////loop:
     while (1) {
         readRefB();
-        printRefB();
+        //printRefB();
         updateField();
 
         if (!filemode) {
