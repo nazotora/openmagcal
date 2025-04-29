@@ -102,7 +102,7 @@ void updateOrder(int signal) {
     if (!filemode) {
         printf("Enter new command:\n\t");
         char inBuffer[255];
-        scanf("%s",inBuffer);
+        fgets(inBuffer, 255, stdin);
         if (addOrder(inBuffer)) {
             printf("Malformed Input!\n");
         }
