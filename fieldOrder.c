@@ -1,14 +1,13 @@
 #include <stdlib.h>
-
 #include "fieldOrder.h"
 
 fieldOrderQueue_t* fieldOrderQueue_init() {
-    fieldOrderQueue_t* queue = malloc(sizeof(fieldOrderQueue_t));
+    fieldOrderQueue_t* queue = (fieldOrderQueue_t*)calloc(sizeof(fieldOrderQueue_t), 1);
     return queue;
 }
 
 fieldOrderNode_t* fieldOrderNode_create(float x, float y, float z, int t) {
-    fieldOrderNode_t* order = malloc(sizeof(fieldOrderNode_t));
+    fieldOrderNode_t* order = (fieldOrderQueue_t*)calloc(sizeof(fieldOrderNode_t), 1);
     order->x = x;
     order->y = y;
     order->z = z;
