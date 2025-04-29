@@ -99,6 +99,14 @@ void readinputfile(char* filepath) {
 }
 
 void updateOrder(int signal) {
+    if (!filemode) {
+        printf("Enter new command:\n\t");
+        char inBuffer[255];
+        scanf("%s",inBuffer);
+        if (addOrder(&inBuffer)) {
+            printf("Malformed Input!\n");
+        }
+    }
     if (fieldOrderQueue_isEmpty(queue)) {
         // Wait for 5 seconds for a new order:
         if (latestOrder != NULL) free(latestOrder);
@@ -107,8 +115,6 @@ void updateOrder(int signal) {
         if (filemode) { //If we are in filemode, just end the program once we run out of commands.
             printf("Instructions completed!\n");
             terminate(SIGTERM);
-        } else {
-            printf("Enter new command: ");
         }
     } else {
         //Reset the update timer:
@@ -191,8 +197,8 @@ int main(int argc, char** argv) {
     printf("Setting up IO...\n");
     // set file status flag of the stdin file handle to make it non-blocking.
     // this is required so that the read command doesnt lock the main thread
-    int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+    //int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    //fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 
     printf("Setting up IP connection...\n");
     //Initialize connection to the PSU:
@@ -230,6 +236,7 @@ int main(int argc, char** argv) {
         //printRefB();
         updateField();
 
+        /*
         if (!filemode) {
             ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
             if (n > 0) {
@@ -248,6 +255,8 @@ int main(int argc, char** argv) {
                 while ((c = getchar()) != '\n' && c != EOF);
             }
         }
+        */
+
         //Used to sleep for 1 ms so that the PSU updates are not sent faster than the connection can handle.
         nanosleep(&CYCLE_TIME, NULL);
     }
