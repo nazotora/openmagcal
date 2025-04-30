@@ -130,7 +130,7 @@ void updateField() {
         double iX = (1000 * latestOrder->x - (double)refB[0]) * SKEW[0];
         double iY = (1000 * latestOrder->y - (double)refB[1]) * SKEW[1];
         double iZ = (1000 * latestOrder->z - (double)refB[2]) * SKEW[2];
-        printf("[DEBUG] Sending <%1.6f, %1.6f, %1.6f> to the PSU\n"); //Debug print
+        printf("[DEBUG] Sending <%1.6f, %1.6f, %1.6f> to the PSU\n", iX, iY, iZ); //Debug print
         //Send the currents to the PSU:
         setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
         //Update the sign pins:

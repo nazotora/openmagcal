@@ -55,7 +55,7 @@ void testConnection() {
     if (recv(socketFD, tcpBuffer, 26, 0) == -1) {
         printf("[DEBUG] Failed to receive PSU IDN!\n");
     } else {
-        printf("[DEBUG] PSU IDN: %26s (This means successful communication with PSU!)\n", tcpBuffer);
+        printf("[DEBUG] PSU IDN: %26s\n", tcpBuffer);
     }
 }
 
@@ -68,9 +68,12 @@ void setAxisCurrent(double x, double y, double z) {
     // 1 nanoamp is 0.000000001 amps, which should be able to be covered by %1.9f.
     // The nanosleep functions are to try and space the instructions out enough to allow proper configuration.
     snprintf(tcpBuffer, 127, "SOUR:CURR:SET CH1,%1.9f\nSOUR:CURR:SET CH2,%1.9f\nSOUR:CURR:SET CH3,%1.9f\n", x, y, z);
-    if (send(socketFD, tcpBuffer, 90, 0) == -1) {
+    int sent = send(socketFD, tcpBuffer, 90, 0);
+    if (sent == -1) {
         printf("[DEBUG] Failed to send packet!\n");
         fprintf(stderr,"Failed to send packet!\n");
+    } else {
+        printf("[DEBUG] Sent %d bytes to the PSU\n", sent);
     }
 }
 
