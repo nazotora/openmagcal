@@ -51,13 +51,17 @@ void testConnection() {
         fprintf(stderr, "Socket is not open!\n");
         return;
     }
-    send(socketFD, "*IDN?", 5, 0);
-    recv(socketFD, tcpBuffer, 26, 0);
-    printf("%26s", tcpBuffer);
+    if (send(socketFD, "*IDN?", 5, 0) == -1) printf("[DEBUG] Failed to query PSU!\n");
+    if (recv(socketFD, tcpBuffer, 26, 0) == -1) {
+        printf("[DEBUG] Failed to receive PSU IDN!\n");
+    } else {
+        printf("[DEBUG] PSU IDN: %26s (This means successful communication with PSU!)\n", tcpBuffer);
+    }
 }
 
 void setAxisCurrent(double x, double y, double z) {
     if (socketFD == -1) {
+        printf("[DEBUG] Cannot send, socket is not open!\n");
         fprintf(stderr, "Socket is not open!\n");
         return;
     }
@@ -65,6 +69,7 @@ void setAxisCurrent(double x, double y, double z) {
     // The nanosleep functions are to try and space the instructions out enough to allow proper configuration.
     snprintf(tcpBuffer, 127, "SOUR:CURR:SET CH1,%1.9f\nSOUR:CURR:SET CH2,%1.9f\nSOUR:CURR:SET CH3,%1.9f\n", x, y, z);
     if (send(socketFD, tcpBuffer, 90, 0) == -1) {
+        printf("[DEBUG] Failed to send packet!\n");
         fprintf(stderr,"Failed to send packet!\n");
     }
 }
@@ -72,24 +77,3 @@ void setAxisCurrent(double x, double y, double z) {
 int closeConnection() {
     return close(socketFD);
 }
-/*
-void setAxisCurrent(float x, float y, float z) {
-    if (socketFD == -1) {
-        fprintf(stderr, "Socket is not open!\n");
-        return;
-    }
-    // "SOUR:CURR:SET CH1,0.000000" Example of structure, 26 characters + possible newline or null character.
-    // The nanosleep functions are to try and space the instructions out enough to allow proper configuration.
-    snprintf(tcpBuffer, 31, "SOUR:CURR:SET CH1,%1.6f\n",x);
-    send(socketFD, tcpBuffer, 27, 0);
-    nanosleep(&MICROSEC, NULL);
-
-    snprintf(tcpBuffer, 31, "SOUR:CURR:SET CH2,%1.6f\n",y);
-    send(socketFD, tcpBuffer, 27, 0);
-    nanosleep(&MICROSEC, NULL);
-
-    snprintf(tcpBuffer, 31, "SOUR:CURR:SET CH3,%1.6f\n",z);
-    send(socketFD, tcpBuffer, 27, 0);
-    nanosleep(&MICROSEC, NULL);
-}
-*/

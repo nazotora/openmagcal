@@ -195,7 +195,6 @@ int main(int argc, char** argv) {
     spiBuffer[1] = 0b01110001;
     wiringPiSPIDataRW(0, spiBuffer, 2);
 
-    printf("Setting up IO...\n");
     // set file status flag of the stdin file handle to make it non-blocking.
     // this is required so that the read command doesnt lock the main thread
     //int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
@@ -204,6 +203,8 @@ int main(int argc, char** argv) {
     printf("Setting up IP connection...\n");
     //Initialize connection to the PSU:
     initConnection(address, port);
+    //Test the connection to the PSU:
+    testConnection();
 
     printf("Configuring pins...\n");
     //Set up GPIO pins for sign:
