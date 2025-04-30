@@ -67,7 +67,7 @@ void setAxisCurrent(double x, double y, double z) {
 }
 
 int closeConnection() {
-    return shutdown(socketFD, SHUT_RDWR);
+    return close(socketFD);
 }
 /*
 void setAxisCurrent(float x, float y, float z) {
