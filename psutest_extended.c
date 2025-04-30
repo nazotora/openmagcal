@@ -75,6 +75,10 @@ void updateField() {
     printf("[DEBUG] Sending <%1.6f, %1.6f, %1.6f> to the PSU\n", iX, iY, iZ); //Debug print
     //Send the currents to the PSU:
     setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
+    //Send the current sign to the pins:
+    digitalWrite(SGN_X, iX < 0);
+    digitalWrite(SGN_Y, iY < 0);
+    digitalWrite(SGN_Z, iZ < 0);
 }
 
 int main(int argc, char** argv) {
@@ -100,7 +104,11 @@ int main(int argc, char** argv) {
     //Test the connection to the PSU:
     testConnection();
 
-    printf("Configuring \"pins\"...\n");
+    printf("Configuring pins...\n");
+    wiringPiSetup();
+    pinMode(SGN_X, OUTPUT);
+    pinMode(SGN_Y, OUTPUT);
+    pinMode(SGN_Z, OUTPUT);
 
     printf("Initializing...\n");
     //Start the first loop:
