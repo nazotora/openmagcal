@@ -17,7 +17,7 @@
 #include "main.h"
 
 //Globals:
-uint8_t *buffer; //SPI buffer
+uint8_t *spiBuffer; //SPI buffer
 int refB[3]; //Reference field (in nanotesla)
 fieldOrderQueue_t* queue; //Linked list of fields
 fieldOrderNode_t* latestOrder;
@@ -29,7 +29,7 @@ void terminate(int signal) {
     free(timer);
     //Shut down the magnetometer connection:
     wiringPiSPIClose(0);
-    free(buffer);
+    free(spiBuffer);
     //Get rid of the field order queue:
     fieldOrderQueue_free(queue);
     if (latestOrder != NULL) free(latestOrder);
@@ -43,11 +43,11 @@ void terminate(int signal) {
 }
 
 void readRefB() {
-    buffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
-    wiringPiSPIDataRW(0,buffer,10);
-    uint32_t rX = 0 | buffer[3] | (buffer[2] << 8) | (buffer[1] << 16);
-    uint32_t rY = 0 | buffer[6] | (buffer[5] << 8) | (buffer[4] << 16);
-    uint32_t rZ = 0 | buffer[9] | (buffer[8] << 8) | (buffer[7] << 16);
+    spiBuffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
+    wiringPiSPIDataRW(0,spiBuffer,10);
+    uint32_t rX = 0 | spiBuffer[3] | (spiBuffer[2] << 8) | (spiBuffer[1] << 16);
+    uint32_t rY = 0 | spiBuffer[6] | (spiBuffer[5] << 8) | (spiBuffer[4] << 16);
+    uint32_t rZ = 0 | spiBuffer[9] | (spiBuffer[8] << 8) | (spiBuffer[7] << 16);
     int32_t x, y, z;
     memcpy(&x, &rX, 4);
     memcpy(&y, &rY, 4);
@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
     struct sigaction termAction;
     termAction.sa_handler = terminate;
     sigemptyset(&termAction.sa_mask);
-    sigaction(SIGTERM, &termAction, NULL);
+    sigaction(SIGINT, &termAction, NULL); //The termination handler is currently tied to SIGINT because that is usually how we are stopping it.
 
     printf("Initializing Queue...\n");
     queue = fieldOrderQueue_init();
@@ -185,14 +185,14 @@ int main(int argc, char** argv) {
         readinputfile(filepath);
     }
 
-    buffer = (uint8_t*)calloc(sizeof(char), 10);
-
+    //Magnetometer setup:
     printf("Setting up Magnetometer...\n");
+    spiBuffer = (uint8_t*)calloc(sizeof(char), 10);
     wiringPiSPISetupMode(0,9600,3); //Channel = 0, Speed = 9600 Bd, Mode = 3. Do not alter unless you know what you're doing!
     //Initiate continuous measurement mode:
-    buffer[0] = 0x01;
-    buffer[1] = 0b01110001;
-    wiringPiSPIDataRW(0, buffer, 2);
+    spiBuffer[0] = 0x01;
+    spiBuffer[1] = 0b01110001;
+    wiringPiSPIDataRW(0, spiBuffer, 2);
 
     printf("Setting up IO...\n");
     // set file status flag of the stdin file handle to make it non-blocking.
