@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 
@@ -37,6 +38,12 @@ void initConnection(const char* address, const char* port) {
     if (socketFD == -1) {
         fprintf(stderr, "Failed to create socket!\n");
         exit(1);
+    }
+
+    //Enable nodelay for real-time sending of packets:
+    int flag = 1;
+    if (setsockopt(socketFD, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int)) == -1) {
+        fprintf(stderr,"Failed to enable TCP_NODELAY!\n");
     }
 
     // Connect to the socket address:
