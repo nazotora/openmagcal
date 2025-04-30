@@ -2,7 +2,7 @@
 #include "psu.h"
 
 int main() {
-    initConnection();
+    initConnection("192.168.21.87", "5025");
     testConnection();
     setAxisCurrent(0.01,0.02,0.03);
     sleep(5);
