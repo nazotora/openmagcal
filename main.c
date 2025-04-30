@@ -226,14 +226,15 @@ int main(int argc, char** argv) {
     timerEvent.sigev_value.sival_int = 0;
     timer_create(CLOCK_REALTIME, &timerEvent, timer);
 
-    printf("[DEBUG] Testing PSU connection AFTER timer has been set up but not enabled\n");
+    printf("[DEBUG] Testing PSU connection after timer has been set up\n");
     testConnection();
 
     printf("Initializing...\n");
     //Start the first loop:
     updateOrder(0);
 
-
+    printf("[DEBUG] Testing PSU connection after first order has been received\n");
+    testConnection();
 
     ////loop:
     while (1) {
