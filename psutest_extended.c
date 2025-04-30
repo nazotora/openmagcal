@@ -17,6 +17,7 @@
 #include "main.h"
 
 //Globals:
+uint8_t *spiBuffer; //SPI buffer
 int refB[3]; //Reference field (in nanotesla)
 fieldOrderNode_t* latestOrder;
 int countdown = 0;
@@ -33,9 +34,18 @@ void terminate(int signal) {
 }
 
 void readRefB() {
-    refB[0] = 2000;
-    refB[1] = 4000;
-    refB[2] = 6000;
+    spiBuffer[0] = 0x80 | 0x24; //MSB = 1 means read, MSB = 0 means write.
+    wiringPiSPIDataRW(0,spiBuffer,10);
+    uint32_t rX = 0 | spiBuffer[3] | (spiBuffer[2] << 8) | (spiBuffer[1] << 16);
+    uint32_t rY = 0 | spiBuffer[6] | (spiBuffer[5] << 8) | (spiBuffer[4] << 16);
+    uint32_t rZ = 0 | spiBuffer[9] | (spiBuffer[8] << 8) | (spiBuffer[7] << 16);
+    int32_t x, y, z;
+    memcpy(&x, &rX, 4);
+    memcpy(&y, &rY, 4);
+    memcpy(&z, &rZ, 4);
+    refB[0] = SENSITIVITY * ((x << 8) >> 8);
+    refB[1] = SENSITIVITY * ((y << 8) >> 8);
+    refB[2] = SENSITIVITY * ((z << 8) >> 8);
 }
 
 void printRefB() {
@@ -77,7 +87,12 @@ int main(int argc, char** argv) {
     printf("Initializing \"Queue\"...\n");
     latestOrder = (fieldOrderNode_t*)calloc(sizeof(fieldOrderQueue_t*), 1);
 
-    printf("Setting up \"Magnetometer\"...\n");
+    printf("Setting up Magnetometer...\n");
+    spiBuffer = (uint8_t*)calloc(sizeof(char), 10);
+    wiringPiSPISetupMode(0,9600,3);
+    spiBuffer[0] = 0x01;
+    spiBuffer[1] = 0b01110001;
+    wiringPiSPIDataRW(0, spiBuffer, 2);
 
     printf("Setting up IP connection...\n");
     //Initialize connection to the PSU:
@@ -91,18 +106,15 @@ int main(int argc, char** argv) {
     //Start the first loop:
     updateOrder(0);
 
-    printf("[DEBUG] Testing PSU connection after first order has been received\n");
-    testConnection();
-
     ////loop:
     while (1) {
-        readRefB();
+        readRefB(); //Updates refB[].
 
-        updateField();
+        updateField(); //Updates what the PSU has set.
 
-        nanosleep(&CYCLE_TIME, NULL);
+        nanosleep(&CYCLE_TIME, NULL); //Waits 1 second.
 
-        if (--countdown < 0) updateOrder(0);
+        if (--countdown < 0) updateOrder(0); //Updates the instruction when the timer is expired.
     }
     return 0;
 }
