@@ -63,7 +63,9 @@ void setAxisCurrent(double x, double y, double z) {
     // 1 nanoamp is 0.000000001 amps, which should be able to be covered by %1.9f.
     // The nanosleep functions are to try and space the instructions out enough to allow proper configuration.
     snprintf(tcpBuffer, 127, "SOUR:CURR:SET CH1,%1.9f\nSOUR:CURR:SET CH2,%1.9f\nSOUR:CURR:SET CH3,%1.9f\n", x, y, z);
-    send(socketFD, tcpBuffer, 90, 0);
+    if (send(socketFD, tcpBuffer, 90, 0) == -1) {
+        fprintf(stderr,"Failed to send packet!\n");
+    }
 }
 
 int closeConnection() {
