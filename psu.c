@@ -18,7 +18,7 @@ const struct timespec MICROSEC = {0, 1000};
 struct addrinfo* socketAddr;
 int socketFD = -1;
 
-char tcpBuffer[128];
+char tcpBuffer[1024];
 
 void initConnection(const char* address, const char* port) {
     // Set up the addr hints:
@@ -59,10 +59,10 @@ void testConnection() {
         return;
     }
     if (send(socketFD, "*IDN?", 5, 0) == -1) printf("[DEBUG] Failed to query PSU!\n");
-    if (recv(socketFD, tcpBuffer, 26, 0) == -1) {
+    if (recv(socketFD, tcpBuffer, 1023, 0) == -1) {
         printf("[DEBUG] Failed to receive PSU IDN!\n");
     } else {
-        printf("[DEBUG] PSU IDN: %26s\n", tcpBuffer);
+        printf("[DEBUG] PSU IDN: %1023s\n", tcpBuffer);
     }
 }
 
