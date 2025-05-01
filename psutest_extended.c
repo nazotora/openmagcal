@@ -80,11 +80,6 @@ void updateOrder(int signal) {
 
     //Reset the update timer:
     printf("100.0 -50.0 25.0 10\n");
-    latestOrder->x = 100.0;
-    latestOrder->y = -50.0;
-    latestOrder->z = 25.0;
-    latestOrder->t = 10;
-
     countdown = latestOrder->t;
 }
 
