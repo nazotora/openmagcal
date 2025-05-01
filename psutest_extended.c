@@ -17,13 +17,17 @@
 #include "main.h"
 
 //Globals:
-uint8_t *spiBuffer; //SPI buffer
+uint8_t* spiBuffer; //SPI buffer, 10 bytes.
 int refB[3]; //Reference field (in nanotesla)
+
+char* ioBuffer; //Text input buffer, 256 bytes.
 fieldOrderNode_t* latestOrder;
 int countdown = 0;
 
 void terminate(int signal) {
     if (latestOrder != NULL) free(latestOrder);
+    free(spiBuffer);
+    free(ioBuffer);
     //Finally, close the TCP connection and exit the program:
     if (closeConnection()) {
         fprintf(stderr,"Failed to close socket!\n");
@@ -57,8 +61,24 @@ void printRefB() {
 }
 
 void updateOrder(int signal) {
+    if (latestOrder != NULL) {
+        free(latestOrder);
+        latestOrder = NULL;
+    }
+
+    double x = 0.0, y = 0.0, z = 0.0; //These are immediately initialized for safety reasons.
+    int t = 0, scan = 0;
+    do {
+        printf("Enter new command:\n\t");
+        fgets(ioBuffer, 255, stdin); //Place the input line into a buffer for safety.
+        ////Note: We may want to flush out stdin after in case someone enters a line that is more than 255 characters long!
+        scan = sscanf(ioBuffer, "%lf %lf %lf %d", &x, &y, &z, &t);
+        if (scan != 4) printf("Error: Malformed input!\n");
+    } while (scan != 4); //Make sure we actually have all the variables!
+
+    latestOrder = fieldOrderNode_create(x, y, z, t); //Since latestOrder has been freed, it is safe to reuse the pointer.
+
     //Reset the update timer:
-    printf("Enter new command:\n\t");
     printf("100.0 -50.0 25.0 10\n");
     latestOrder->x = 100.0;
     latestOrder->y = -50.0;
@@ -76,9 +96,11 @@ void updateField() {
     //Send the currents to the PSU:
     setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
     //Send the current sign to the pins:
+    /* WARNING: CAUSES NETWORK FAILURE. DO NOT USE!
     digitalWrite(SGN_X, iX < 0);
     digitalWrite(SGN_Y, iY < 0);
     digitalWrite(SGN_Z, iZ < 0);
+    */
 }
 
 int main(int argc, char** argv) {
@@ -89,6 +111,7 @@ int main(int argc, char** argv) {
     sigaction(SIGINT, &termAction, NULL); //The termination handler is currently tied to SIGINT because that is usually how we are stopping it.
 
     printf("Initializing \"Queue\"...\n");
+    ioBuffer = (char*)calloc(sizeof(char), 256);
     latestOrder = (fieldOrderNode_t*)calloc(sizeof(fieldOrderQueue_t*), 1);
 
     printf("Setting up Magnetometer...\n");
@@ -104,11 +127,13 @@ int main(int argc, char** argv) {
     //Test the connection to the PSU:
     testConnection();
 
+    /* WARNING: CAUSES NETWORK FAILURE. DO NOT USE!
     printf("Configuring pins...\n");
     wiringPiSetup();
     pinMode(SGN_X, OUTPUT);
     pinMode(SGN_Y, OUTPUT);
     pinMode(SGN_Z, OUTPUT);
+    */
 
     printf("Initializing...\n");
     //Start the first loop:
