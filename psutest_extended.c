@@ -79,7 +79,6 @@ void updateOrder(int signal) {
     latestOrder = fieldOrderNode_create(x, y, z, t); //Since latestOrder has been freed, it is safe to reuse the pointer.
 
     //Reset the update timer:
-    printf("100.0 -50.0 25.0 10\n");
     countdown = latestOrder->t;
 }
 
