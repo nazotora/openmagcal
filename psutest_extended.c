@@ -21,11 +21,14 @@ uint8_t* spiBuffer; //SPI buffer, 10 bytes.
 int refB[3]; //Reference field (in nanotesla)
 
 char* ioBuffer; //Text input buffer, 256 bytes.
+long ioBufferSize;
+fieldOrderQueue_t* queue;
 fieldOrderNode_t* latestOrder;
 int countdown = 0;
 
 void terminate(int signal) {
     if (latestOrder != NULL) free(latestOrder);
+    if (filemode) fieldOrderQueue_free(queue);
     free(spiBuffer);
     free(ioBuffer);
     //Finally, close the TCP connection and exit the program:
@@ -35,6 +38,36 @@ void terminate(int signal) {
     } else {
         exit(0);
     }
+}
+
+void readFile(char* filepath) {
+    FILE* file = fopen(filepath, "r");
+    if (file == NULL) {
+        fprintf(stderr, "Error: file %s not found.", filepath);
+        exit(1);
+    }
+    double x = 0.0, y = 0.0, z = 0.0;
+    int t = 0, lineCount = 0;
+    while (getline(ioBuffer, &ioBufferSize, file) != -1) {
+        lineCount++;
+        if (sscanf(ioBuffer, "%lf %lf %lf %d", &x, &y, &z, &t) != 4) {
+            fprintf(stderr, "Malformed input at line %d!\n", lineCount);
+            exit(1);
+        } else if (fabs(x) > 160 || fabs(y) > 160 || fabs(z) > 160) {
+            fprintf(stderr, "Invalid feld magnitude at line %d!\n", lineCount);
+            exit(1);
+        } else if (t < 0 || t > 86400) { //Less than 0 seconds or More than 1 day.
+            fprintf(stderr, "Invalid time parameter at line %d!\n", lineCount);
+            exit(1);
+        }
+        fieldOrderNode_t* command = fieldOrderNode_create(x, y, z, t);
+        fieldOrderQueue_enqueue(queue, command);
+    }
+    #if DEBUG
+    printf("[DEBUG] %d instructions loaded from file.\n");
+    #endif
+    fclose(file);
+    return;
 }
 
 void readRefB() {
@@ -60,35 +93,44 @@ void printRefB() {
     printf("[DEBUG] B = %.3fx%+.3fy%+.3fz uT (|B| = %.3f)\n",bX, bY, bZ, bT);
 }
 
-void updateOrder(int signal) {
-    if (latestOrder != NULL) {
-        free(latestOrder);
-        latestOrder = NULL;
-    }
-
-    double x = 0.0, y = 0.0, z = 0.0; //These are immediately initialized for safety reasons.
-    int t = 0, invalid = FALSE;
-    do {
-        invalid = FALSE;
-        printf("Enter new command:\n\t");
-        fgets(ioBuffer, 255, stdin); //Place the input line into a buffer for safety.
-        ////Note: We may want to flush out stdin after in case someone enters a line that is more than 255 characters long!
-
-        //Read input and check for invalid values:
-        if (sscanf(ioBuffer, "%lf %lf %lf %d", &x, &y, &z, &t) != 4) {
-            printf("Error: Malformed input!\n");
-            invalid = TRUE;
-        } else if (fabs(x) > 160 || fabs(y) > 160 || fabs(z) > 160) {
-            printf("Error: Magnetic field magnitude should not exceed 160 uT!\n");
-            invalid = TRUE;
-        } else if (t < 0 || t > 86400) { //Less than 0 seconds or More than 1 day.
-            printf("Error: Invalid time parameter!\n");
-            invalid = TRUE;
+void updateOrder() {
+    if (filemode) {
+        if (fieldOrderQueue_isEmpty(queue)) {
+            printf("All orders complete, shutting down...");
+            terminate(SIGINT);
+        } else {
+            if (latestOrder != NULL) free(latestOrder);
+            latestOrder = fieldOrderQueue_dequeue(queue);
+            printf("Incoming field order: <%f %f %f %d>\n", latestOrder->x, latestOrder->y, latestOrder->z, latestOrder->t);
         }
-    } while (invalid); //Make sure we actually have all the variables!
-
-    latestOrder = fieldOrderNode_create(x, y, z, t); //Since latestOrder has been freed, it is safe to reuse the pointer.
-
+    } else { //Command mode:
+        if (latestOrder != NULL) {
+            free(latestOrder);
+            latestOrder = NULL;
+        }
+    
+        double x = 0.0, y = 0.0, z = 0.0; //These are immediately initialized for safety reasons.
+        int t = 0, invalid = FALSE;
+        do {
+            invalid = FALSE;
+            printf("Enter new command:\n\t");
+            fgets(ioBuffer, 255, stdin); //Place the input line into a buffer for safety.
+            ////Note: We may want to flush out stdin after in case someone enters a line that is more than 255 characters long!
+    
+            //Read input and check for invalid values:
+            if (sscanf(ioBuffer, "%lf %lf %lf %d", &x, &y, &z, &t) != 4) {
+                printf("Error: Malformed input!\n");
+                invalid = TRUE;
+            } else if (fabs(x) > 160 || fabs(y) > 160 || fabs(z) > 160) {
+                printf("Error: Magnetic field magnitude should not exceed 160 uT!\n");
+                invalid = TRUE;
+            } else if (t < 0 || t > 86400) { //Less than 0 seconds or More than 1 day.
+                printf("Error: Invalid time parameter!\n");
+                invalid = TRUE;
+            }
+        } while (invalid); //Make sure we actually have all the variables!
+        latestOrder = fieldOrderNode_create(x, y, z, t); //Since latestOrder has been freed, it is safe to reuse the pointer.
+    }
     //Reset the update timer:
     countdown = latestOrder->t;
 }
@@ -118,6 +160,11 @@ void updateField() {
 }
 
 int main(int argc, char** argv) {
+    char* filepath = NULL;
+    if (argc > 1 || strcmp(argv[1], "-f")) { //World's worst argument reader.
+        filemode = true;
+        filepath = argv[2];
+    }
     //Set up the termination handler:
     struct sigaction termAction;
     termAction.sa_handler = terminate;
@@ -125,8 +172,18 @@ int main(int argc, char** argv) {
     sigaction(SIGINT, &termAction, NULL); //The termination handler is currently tied to SIGINT because that is usually how we are stopping it.
 
     printf("Initializing Queue...\n");
-    ioBuffer = (char*)calloc(sizeof(char), 256);
-    latestOrder = (fieldOrderNode_t*)calloc(sizeof(fieldOrderQueue_t*), 1);
+    ioBufferSize = 256;
+    ioBuffer = (char*)calloc(sizeof(char), ioBufferSize);
+    if (filemode) { //In filemode, initialize the fieldOrder queue.
+        queue = fieldOrderQueue_init();
+    } else { //Otherwise just initialize a space for latestOrder.
+        latestOrder = (fieldOrderNode_t*)calloc(sizeof(fieldOrderQueue_t*), 1);
+    }
+
+    if (filemode) {
+        printf("Reading commands from file...\n");
+        readFile(filepath);
+    }
 
     printf("Setting up Magnetometer...\n");
     spiBuffer = (uint8_t*)calloc(sizeof(char), 10);
@@ -139,7 +196,9 @@ int main(int argc, char** argv) {
     //Initialize connection to the PSU:
     initConnection(address, port);
     //Test the connection to the PSU:
+    #if DEBUG
     testConnection();
+    #endif
 
     /* WARNING: CAUSES NETWORK FAILURE. DO NOT USE!
     printf("Configuring pins...\n");
@@ -151,7 +210,7 @@ int main(int argc, char** argv) {
 
     printf("Initializing...\n");
     //Start the first loop:
-    updateOrder(0);
+    updateOrder();
 
     ////loop:
     while (1) {
@@ -164,7 +223,7 @@ int main(int argc, char** argv) {
 
         nanosleep(&CYCLE_TIME, NULL); //Waits 1 second.
 
-        if (--countdown < 0) updateOrder(0); //Updates the instruction when the timer is expired.
+        if (--countdown < 0) updateOrder(); //Updates the instruction when the timer is expired.
     }
     return 0;
 }
