@@ -48,7 +48,7 @@ void readFile(char* filepath) {
     }
     double x = 0.0, y = 0.0, z = 0.0;
     int t = 0, lineCount = 0;
-    while (getline(ioBuffer, &ioBufferSize, file) != -1) {
+    while (getline(&ioBuffer, &ioBufferSize, file) != -1) {
         lineCount++;
         if (sscanf(ioBuffer, "%lf %lf %lf %d", &x, &y, &z, &t) != 4) {
             fprintf(stderr, "Malformed input at line %d!\n", lineCount);
