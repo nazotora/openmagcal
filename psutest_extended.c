@@ -161,7 +161,7 @@ void updateField() {
 
 int main(int argc, char** argv) {
     char* filepath = NULL;
-    if (argc > 1 && strcmp(argv[1], "-f")) { //World's worst argument reader.
+    if (argc > 1 && !strcmp(argv[1], "-f")) { //World's worst argument reader.
         filemode = true;
         filepath = argv[2];
     }
