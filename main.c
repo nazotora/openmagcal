@@ -17,22 +17,20 @@
 #include "main.h"
 
 //Globals:
-uint8_t *spiBuffer; //SPI buffer
+uint8_t* spiBuffer; //SPI buffer, 10 bytes.
 int refB[3]; //Reference field (in nanotesla)
-fieldOrderQueue_t* queue; //Linked list of fields
+
+char* ioBuffer; //Text input buffer, 256 bytes.
+long ioBufferSize;
+fieldOrderQueue_t* queue;
 fieldOrderNode_t* latestOrder;
-timer_t* timer; //Field changeover timer
+int countdown = 0;
 
 void terminate(int signal) {
-    //Shut off the timer. It is important that this happens first, as the timer could otherwise trigger during the termination routine.
-    timer_delete(*timer);
-    free(timer);
-    //Shut down the magnetometer connection:
-    wiringPiSPIClose(0);
-    free(spiBuffer);
-    //Get rid of the field order queue:
-    fieldOrderQueue_free(queue);
     if (latestOrder != NULL) free(latestOrder);
+    if (filemode) fieldOrderQueue_free(queue);
+    free(spiBuffer);
+    free(ioBuffer);
     //Finally, close the TCP connection and exit the program:
     if (closeConnection()) {
         fprintf(stderr,"Failed to close socket!\n");
@@ -40,6 +38,36 @@ void terminate(int signal) {
     } else {
         exit(0);
     }
+}
+
+void readFile(char* filepath) {
+    FILE* file = fopen(filepath, "r");
+    if (file == NULL) {
+        fprintf(stderr, "Error: file %s not found.", filepath);
+        exit(1);
+    }
+    double x = 0.0, y = 0.0, z = 0.0;
+    int t = 0, lineCount = 0;
+    while (getline(&ioBuffer, &ioBufferSize, file) != -1) {
+        lineCount++;
+        if (sscanf(ioBuffer, "%lf %lf %lf %d", &x, &y, &z, &t) != 4) {
+            fprintf(stderr, "Malformed input at line %d!\n", lineCount);
+            exit(1);
+        } else if (fabs(x) > 160 || fabs(y) > 160 || fabs(z) > 160) {
+            fprintf(stderr, "Invalid feld magnitude at line %d!\n", lineCount);
+            exit(1);
+        } else if (t < 0 || t > 86400) { //Less than 0 seconds or More than 1 day.
+            fprintf(stderr, "Invalid time parameter at line %d!\n", lineCount);
+            exit(1);
+        }
+        fieldOrderNode_t* command = fieldOrderNode_create(x, y, z, t);
+        fieldOrderQueue_enqueue(queue, command);
+    }
+    #if DEBUG
+    printf("[DEBUG] %d instructions loaded from file.\n");
+    #endif
+    fclose(file);
+    return;
 }
 
 void readRefB() {
@@ -62,116 +90,82 @@ void printRefB() {
     float bY = (float)refB[1] / 1000;
     float bZ = (float)refB[2] / 1000;
     float bT = sqrtf(bX*bX + bY*bY + bZ*bZ);
-    printf("B = %.3fx%+.3fy%+.3fz uT (|B| = %.3f)\n",bX, bY, bZ, bT);
+    printf("[DEBUG] B = %.3fx%+.3fy%+.3fz uT (|B| = %.3f)\n",bX, bY, bZ, bT);
 }
 
-int addOrder(char* buf) {
-    float x, y, z;
-    int t;
-    int status = sscanf(buf, "%f %f %f %d", &x, &y, &z, &t);
-    if (!status) {
-        return 1;
-    }
-    fieldOrderQueue_enqueue(queue, fieldOrderNode_create(x, y, z, t));
-    return 0;
-}
-
-void readinputfile(char* filepath) {
-    FILE* fp = fopen(filepath, "r");
-    if (fp == NULL) {
-        log_error("File %s not found.", filepath);
-        exit(1);
-    }
-
-    ssize_t read;
-    char* line = NULL;
-    size_t len = 0;
-    while((read = getline(&line, &len, fp)) != -1) {
-        if (addOrder(line)) {
-            printf("Malformed field inclusion; exiting.\n");
-            exit(1);
+void updateOrder() {
+    if (filemode) {
+        if (fieldOrderQueue_isEmpty(queue)) {
+            printf("All orders complete, shutting down...");
+            terminate(SIGINT);
+        } else {
+            if (latestOrder != NULL) free(latestOrder);
+            latestOrder = fieldOrderQueue_dequeue(queue);
+            printf("Incoming field order: <%f %f %f %d>\n", latestOrder->x, latestOrder->y, latestOrder->z, latestOrder->t);
         }
-    }
-
-    fclose(fp);
-    if (line) free(line);
-    return;
-}
-
-void updateOrder(int signal) {
-    if (!filemode) {
-        printf("Enter new command:\n\t");
-        char inBuffer[255];
-        fgets(inBuffer, 255, stdin);
-        if (addOrder(inBuffer)) {
-            printf("Malformed Input!\n");
+    } else { //Command mode:
+        if (latestOrder != NULL) {
+            free(latestOrder);
+            latestOrder = NULL;
         }
+    
+        double x = 0.0, y = 0.0, z = 0.0; //These are immediately initialized for safety reasons.
+        int t = 0, invalid = FALSE;
+        do {
+            invalid = FALSE;
+            printf("Enter new command:\n\t");
+            fgets(ioBuffer, 255, stdin); //Place the input line into a buffer for safety.
+            ////Note: We may want to flush out stdin after in case someone enters a line that is more than 255 characters long!
+    
+            //Read input and check for invalid values:
+            if (sscanf(ioBuffer, "%lf %lf %lf %d", &x, &y, &z, &t) != 4) {
+                printf("Error: Malformed input!\n");
+                invalid = TRUE;
+            } else if (fabs(x) > 160 || fabs(y) > 160 || fabs(z) > 160) {
+                printf("Error: Magnetic field magnitude should not exceed 160 uT!\n");
+                invalid = TRUE;
+            } else if (t < 0 || t > 86400) { //Less than 0 seconds or More than 1 day.
+                printf("Error: Invalid time parameter!\n");
+                invalid = TRUE;
+            }
+        } while (invalid); //Make sure we actually have all the variables!
+        latestOrder = fieldOrderNode_create(x, y, z, t); //Since latestOrder has been freed, it is safe to reuse the pointer.
     }
-    if (fieldOrderQueue_isEmpty(queue)) {
-        // Wait for 5 seconds for a new order:
-        if (latestOrder != NULL) free(latestOrder);
-        latestOrder = NULL;
-
-        if (filemode) { //If we are in filemode, just end the program once we run out of commands.
-            printf("Instructions completed!\n");
-            terminate(SIGTERM);
-        }
-    } else {
-        //Reset the update timer:
-        latestOrder = fieldOrderQueue_dequeue(queue);
-        struct itimerspec newInterval = {ZERO_TIME, {(latestOrder->t), 0}};
-        timer_settime(*timer, 0, &newInterval, NULL);
-    }
+    //Reset the update timer:
+    countdown = latestOrder->t;
 }
 
 void updateField() {
-    if (latestOrder) {
-        //Compute the necessary currents:
-        double iX = (1000 * latestOrder->x - (double)refB[0]) * SKEW[0];
-        double iY = (1000 * latestOrder->y - (double)refB[1]) * SKEW[1];
-        double iZ = (1000 * latestOrder->z - (double)refB[2]) * SKEW[2];
-        printf("[DEBUG] Sending <%1.6f, %1.6f, %1.6f> to the PSU\n", iX, iY, iZ); //Debug print
-        //Send the currents to the PSU:
-        setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
-        //Update the sign pins:
-        digitalWrite(SGN_X, iX < 0);
-        digitalWrite(SGN_Y, iY < 0);
-        digitalWrite(SGN_Z, iZ < 0);
-    } else {
-        if(!fieldOrderQueue_isEmpty(queue)) {
-            // signal is non-authoritative in this instance.
-            // restarting updateOrder loop.
-            updateOrder(SIGUSR1);
-            return;
-        }
-        // If no order, then default to supplying no power.
-        setAxisCurrent(0.0, 0.0, 0.0);
-        digitalWrite(SGN_X, 0);
-        digitalWrite(SGN_Y, 0);
-        digitalWrite(SGN_Z, 0);
+    double iX = (1000 * latestOrder->x - (double)refB[0]) * SKEW[0];
+    double iY = (1000 * latestOrder->y - (double)refB[1]) * SKEW[1];
+    double iZ = (1000 * latestOrder->z - (double)refB[2]) * SKEW[2];
+    #if DEBUG
+    printf("[DEBUG] Currents set to <%1.6f, %1.6f, %1.6f> A\n", iX, iY, iZ); //Debug print
+    #endif
+    //Check to make sure that field does not exceed safe parameters, and stop it if it does:
+    if (fabs(iX) > 0.6 || fabs(iY) > 0.6 || fabs(iZ) > 0.6) {
+        fprintf(stderr, "WARNING: Maximum current exceeded safe parameters (600 mA). All currents set to 0.\n");
+        iX = 0.0;
+        iY = 0.0;
+        iZ = 0.0;
     }
+    //Send the currents to the PSU:
+    setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
+    //Send the current sign to the pins:
+    #if DEBUG
+    printf("[DEBUG] Writing to pins\n");
+    #endif
+    digitalWrite(SGN_X, iX < 0);
+    digitalWrite(SGN_Y, iY < 0);
+    digitalWrite(SGN_Z, iZ < 0);
 }
 
 int main(int argc, char** argv) {
-    int c; // why int... :(
-    while ((c = getopt(argc, argv, "f:")) != -1) {
-        // the random undefined variables in here are extern vars
-        switch(c) {
-            case 'f':
-                filemode = true;
-                filepath = optarg;
-                break;
-            case ':':
-                log_error("Option -%c requires an operand.\n", optopt);
-                exit(1);
-                break;
-            case '?':
-                log_error("Unrecognized option: '-%c'\n", optopt);
-                exit(1);
-                break;
-        }
+    char* filepath = NULL;
+    if (argc > 1 && !strcmp(argv[1], "-f")) { //World's worst argument reader.
+        filemode = true;
+        filepath = argv[2];
     }
-
     //Set up the termination handler:
     struct sigaction termAction;
     termAction.sa_handler = terminate;
@@ -179,92 +173,57 @@ int main(int argc, char** argv) {
     sigaction(SIGINT, &termAction, NULL); //The termination handler is currently tied to SIGINT because that is usually how we are stopping it.
 
     printf("Initializing Queue...\n");
-    queue = fieldOrderQueue_init();
-    if (filemode) {
-        // file reading.
-        // currently for ease of use this just throws the entire thing in memory.
-        readinputfile(filepath);
+    ioBufferSize = 256;
+    ioBuffer = (char*)calloc(sizeof(char), ioBufferSize);
+    if (filemode) { //In filemode, initialize the fieldOrder queue.
+        queue = fieldOrderQueue_init();
+    } else { //Otherwise just initialize a space for latestOrder.
+        latestOrder = (fieldOrderNode_t*)calloc(sizeof(fieldOrderQueue_t*), 1);
     }
 
-    //Magnetometer setup:
+    if (filemode) {
+        printf("Reading commands from file...\n");
+        readFile(filepath);
+    }
+
     printf("Setting up Magnetometer...\n");
     spiBuffer = (uint8_t*)calloc(sizeof(char), 10);
-    wiringPiSPISetupMode(0,9600,3); //Channel = 0, Speed = 9600 Bd, Mode = 3. Do not alter unless you know what you're doing!
-    //Initiate continuous measurement mode:
+    wiringPiSPISetupMode(0,9600,3);
     spiBuffer[0] = 0x01;
     spiBuffer[1] = 0b01110001;
     wiringPiSPIDataRW(0, spiBuffer, 2);
-
-    // set file status flag of the stdin file handle to make it non-blocking.
-    // this is required so that the read command doesnt lock the main thread
-    //int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-    //fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 
     printf("Setting up IP connection...\n");
     //Initialize connection to the PSU:
     initConnection(address, port);
     //Test the connection to the PSU:
+    #if DEBUG
     testConnection();
+    #endif
 
+    //Fix 1: Change wiringPiSetup() to wiringPiSetupGPIO()
     printf("Configuring pins...\n");
-    //Set up GPIO pins for sign:
-    wiringPiSetup();
+    wiringPiSetupGpio();
     pinMode(SGN_X, OUTPUT);
     pinMode(SGN_Y, OUTPUT);
     pinMode(SGN_Z, OUTPUT);
 
-    printf("Configuring Timer...\n");
-    //Set up the signal-loop system:
-    timer = calloc(1, sizeof(timer_t*));
-    struct sigaction timerAction;
-    timerAction.sa_handler = updateOrder;
-    sigemptyset(&timerAction.sa_mask);
-    sigaction(SIGUSR1, &timerAction, NULL);
-    struct sigevent timerEvent;
-    timerEvent.sigev_notify = SIGEV_SIGNAL;
-    timerEvent.sigev_signo = SIGUSR1;
-    timerEvent.sigev_value.sival_int = 0;
-    timer_create(CLOCK_REALTIME, &timerEvent, timer);
-
-    printf("[DEBUG] Testing PSU connection after timer has been set up\n");
-    testConnection();
-
     printf("Initializing...\n");
     //Start the first loop:
-    updateOrder(0);
-
-    printf("[DEBUG] Testing PSU connection after first order has been received\n");
-    testConnection();
+    updateOrder();
 
     ////loop:
     while (1) {
-        readRefB();
-        //printRefB();
-        updateField();
+        readRefB(); //Updates refB[].
+        #if DEBUG
+        printRefB();
+        #endif
 
-        /*
-        if (!filemode) {
-            ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
-            if (n > 0) {
-                // stuff in stdin :)
-                buffer[n] = '\0';
-                printf("%s\n", buffer);
-                
-                // try to add to queue.
-                if (addOrder(buffer)) {
-                    // add to command queue.
-                    printf("Malformed field inclusion! Ignoring...\n");
-                }
-    
-                // clear out what we had in stdin (not a typo)
-                int c;
-                while ((c = getchar()) != '\n' && c != EOF);
-            }
-        }
-        */
+        updateField(); //Updates what the PSU has set.
 
-        //Used to sleep for 1 ms so that the PSU updates are not sent faster than the connection can handle.
-        nanosleep(&CYCLE_TIME, NULL);
+        nanosleep(&CYCLE_TIME, NULL); //Waits 1 second.
+
+        if (--countdown < 0) updateOrder(); //Updates the instruction when the timer is expired.
     }
     return 0;
 }

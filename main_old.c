@@ -21,9 +21,12 @@ uint8_t *spiBuffer; //SPI buffer
 int refB[3]; //Reference field (in nanotesla)
 fieldOrderQueue_t* queue; //Linked list of fields
 fieldOrderNode_t* latestOrder;
-int countdown = 0;
+timer_t* timer; //Field changeover timer
 
 void terminate(int signal) {
+    //Shut off the timer. It is important that this happens first, as the timer could otherwise trigger during the termination routine.
+    timer_delete(*timer);
+    free(timer);
     //Shut down the magnetometer connection:
     wiringPiSPIClose(0);
     free(spiBuffer);
@@ -116,7 +119,8 @@ void updateOrder(int signal) {
     } else {
         //Reset the update timer:
         latestOrder = fieldOrderQueue_dequeue(queue);
-        countdown = latestOrder->t;
+        struct itimerspec newInterval = {ZERO_TIME, {(latestOrder->t), 0}};
+        timer_settime(*timer, 0, &newInterval, NULL);
     }
 }
 
@@ -209,6 +213,22 @@ int main(int argc, char** argv) {
     pinMode(SGN_Y, OUTPUT);
     pinMode(SGN_Z, OUTPUT);
 
+    printf("Configuring Timer...\n");
+    //Set up the signal-loop system:
+    timer = calloc(1, sizeof(timer_t*));
+    struct sigaction timerAction;
+    timerAction.sa_handler = updateOrder;
+    sigemptyset(&timerAction.sa_mask);
+    sigaction(SIGUSR1, &timerAction, NULL);
+    struct sigevent timerEvent;
+    timerEvent.sigev_notify = SIGEV_SIGNAL;
+    timerEvent.sigev_signo = SIGUSR1;
+    timerEvent.sigev_value.sival_int = 0;
+    timer_create(CLOCK_REALTIME, &timerEvent, timer);
+
+    printf("[DEBUG] Testing PSU connection after timer has been set up\n");
+    testConnection();
+
     printf("Initializing...\n");
     //Start the first loop:
     updateOrder(0);
@@ -222,10 +242,29 @@ int main(int argc, char** argv) {
         //printRefB();
         updateField();
 
+        /*
+        if (!filemode) {
+            ssize_t n = read(STDIN_FILENO, buffer, sizeof(buffer) - 1);
+            if (n > 0) {
+                // stuff in stdin :)
+                buffer[n] = '\0';
+                printf("%s\n", buffer);
+                
+                // try to add to queue.
+                if (addOrder(buffer)) {
+                    // add to command queue.
+                    printf("Malformed field inclusion! Ignoring...\n");
+                }
+    
+                // clear out what we had in stdin (not a typo)
+                int c;
+                while ((c = getchar()) != '\n' && c != EOF);
+            }
+        }
+        */
+
         //Used to sleep for 1 ms so that the PSU updates are not sent faster than the connection can handle.
         nanosleep(&CYCLE_TIME, NULL);
-        // Countdown synchronous timer:
-        if (--countdown < 0) updateOrder(0);
     }
     return 0;
 }
