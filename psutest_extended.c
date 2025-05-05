@@ -152,11 +152,12 @@ void updateField() {
     //Send the currents to the PSU:
     setAxisCurrent(fabs(iX), fabs(iY), fabs(iZ));
     //Send the current sign to the pins:
-    /* WARNING: CAUSES NETWORK FAILURE. DO NOT USE!
+    #if DEBUG
+    printf("[DEBUG] Writing to pins\n");
+    #endif
     digitalWrite(SGN_X, iX < 0);
     digitalWrite(SGN_Y, iY < 0);
     digitalWrite(SGN_Z, iZ < 0);
-    */
 }
 
 int main(int argc, char** argv) {
@@ -200,13 +201,12 @@ int main(int argc, char** argv) {
     testConnection();
     #endif
 
-    /* WARNING: CAUSES NETWORK FAILURE. DO NOT USE!
+    //Fix 1: Change wiringPiSetup() to wiringPiSetupGPIO()
     printf("Configuring pins...\n");
-    wiringPiSetup();
+    wiringPiSetupGpio();
     pinMode(SGN_X, OUTPUT);
     pinMode(SGN_Y, OUTPUT);
     pinMode(SGN_Z, OUTPUT);
-    */
 
     printf("Initializing...\n");
     //Start the first loop:

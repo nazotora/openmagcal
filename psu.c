@@ -80,7 +80,9 @@ void setAxisCurrent(double x, double y, double z) {
         printf("[DEBUG] Failed to send packet!\n");
         fprintf(stderr,"Failed to send packet!\n");
     } else {
+        #if DEBUG
         printf("[DEBUG] Sent %d bytes to the PSU\n", sent);
+        #endif
     }
 }
 
