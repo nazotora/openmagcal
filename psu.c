@@ -52,7 +52,12 @@ void initConnection(const char* address, const char* port) {
         exit(2);
     }
 
+    //Set voltage to 3, current to 0, and turn on the outputs:
     snprintf(tcpBuffer, 127, "SOUR:VOLT:SET CH1,3.0\nSOUR:VOLT:SET CH2,3.0\nSOUR:VOLT:SET CH3,3.0\n");
+    send(socketFD, tcpBuffer, 90, 0);
+    snprintf(tcpBuffer, 127, "SOUR:CURR:SET CH1,0.0\nSOUR:CURR:SET CH2,0.0\nSOUR:CURR:SET CH3,0.0\n");
+    send(socketFD, tcpBuffer, 90, 0);
+    snprintf(tcpBuffer, 127, "SOUR:OUTP:STAT CH1,OFF\nSOUR:OUTP:STAT CH2,OFF\nSOUR:OUTP:STAT CH3,OFF\n");
     send(socketFD, tcpBuffer, 90, 0);
 }
 
@@ -90,7 +95,7 @@ void setAxisCurrent(double x, double y, double z) {
 }
 
 int closeConnection() {
-    snprintf(tcpBuffer, 127, "SOUR:OUTP:STAT CH1,OFF\nOUR:OUTP:STAT CH2,OFF\nOUR:OUTP:STAT CH3,OFF\n");
+    snprintf(tcpBuffer, 127, "SOUR:OUTP:STAT CH1,OFF\nSOUR:OUTP:STAT CH2,OFF\nSOUR:OUTP:STAT CH3,OFF\n");
     send(socketFD, tcpBuffer, 90, 0);
     return close(socketFD);
 }
