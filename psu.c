@@ -51,6 +51,9 @@ void initConnection(const char* address, const char* port) {
         fprintf(stderr, "Failed to connect to socket!\n");
         exit(2);
     }
+
+    snprintf(tcpBuffer, 127, "SOUR:VOLT:SET CH1,3.0\nSOUR:VOLT:SET CH2,3.0\nSOUR:VOLT:SET CH3,3.0\n");
+    send(socketFD, tcpBuffer, 90, 0);
 }
 
 void testConnection() {
