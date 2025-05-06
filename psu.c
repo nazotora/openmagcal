@@ -57,7 +57,7 @@ void initConnection(const char* address, const char* port) {
     send(socketFD, tcpBuffer, 90, 0);
     snprintf(tcpBuffer, 127, "SOUR:CURR:SET CH1,0.0\nSOUR:CURR:SET CH2,0.0\nSOUR:CURR:SET CH3,0.0\n");
     send(socketFD, tcpBuffer, 90, 0);
-    snprintf(tcpBuffer, 127, "SOUR:OUTP:STAT CH1,OFF\nSOUR:OUTP:STAT CH2,OFF\nSOUR:OUTP:STAT CH3,OFF\n");
+    snprintf(tcpBuffer, 127, "SOUR:OUTP:STAT CH1,ON\nSOUR:OUTP:STAT CH2,ON\nSOUR:OUTP:STAT CH3,ON\n");
     send(socketFD, tcpBuffer, 90, 0);
 }
 
