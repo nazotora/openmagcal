@@ -87,5 +87,7 @@ void setAxisCurrent(double x, double y, double z) {
 }
 
 int closeConnection() {
+    snprintf(tcpBuffer, 127, "SOUR:OUTP:STAT CH1,OFF\nOUR:OUTP:STAT CH2,OFF\nOUR:OUTP:STAT CH3,OFF\n");
+    send(socketFD, tcpBuffer, 90, 0);
     return close(socketFD);
 }
