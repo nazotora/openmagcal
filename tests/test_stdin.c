@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
             printf("%s\n", buffer);
             
             // test the provided input is good.
-            if (false) {
+            if (0) {
                 // add to command queue.
             }
 
